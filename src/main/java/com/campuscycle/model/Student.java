@@ -5,7 +5,6 @@ import com.campuscycle.service.oop.StudentPricingStrategy;
 
 /**
  * Concrete subclass representing a Student user.
- * Demonstrates inheritance and polymorphism.
  */
 public class Student extends User {
     private String studentId;
@@ -13,17 +12,15 @@ public class Student extends User {
     private int loyaltyPoints;
     private static final PricingStrategy PRICING_STRATEGY = new StudentPricingStrategy();
 
-    public Student(int id, String username, String password, String fullName, String email, String phone,
-                   String studentId, String department, int loyaltyPoints) {
-        super(id, username, password, fullName, email, phone, UserRole.STUDENT);
+    public Student(int id, String username, String passwordHash, String passwordSalt,
+                   String fullName, String email, String phone,
+                   String studentId, String department, int loyaltyPoints,
+                   double walletBalance, boolean isActive, String createdAt) {
+        super(id, username, passwordHash, passwordSalt, fullName, email, phone,
+              UserRole.STUDENT, walletBalance, isActive, createdAt);
         this.studentId = studentId;
         this.department = department;
         this.loyaltyPoints = loyaltyPoints;
-    }
-
-    public Student(int id, String username, String password, String fullName, String email, String phone,
-                   String studentId, String department) {
-        this(id, username, password, fullName, email, phone, studentId, department, 10);
     }
 
     @Override
@@ -43,7 +40,7 @@ public class Student extends User {
 
     @Override
     public boolean canRentCycles() {
-        return true;
+        return isActive;
     }
 
     @Override

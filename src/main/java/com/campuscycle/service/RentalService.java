@@ -6,6 +6,7 @@ import com.campuscycle.dao.RentalDao;
 import com.campuscycle.dao.UserDao;
 import com.campuscycle.model.*;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -14,7 +15,7 @@ import java.util.UUID;
 import java.util.logging.Logger;
 
 /**
- * Service managing cycle rental operations, return procedures, and billing.
+ * Enterprise Service managing cycle rental operations, return procedures, and wallet deductions.
  */
 public class RentalService {
     private static final Logger LOGGER = Logger.getLogger(RentalService.class.getName());
@@ -24,35 +25,50 @@ public class RentalService {
     private final CycleDao cycleDao;
     private final PaymentDao paymentDao;
     private final UserDao userDao;
+    private final WalletService walletService;
+    private final MaintenanceService maintenanceService;
 
     public RentalService() {
         this.rentalDao = new RentalDao();
         this.cycleDao = new CycleDao();
         this.paymentDao = new PaymentDao();
         this.userDao = new UserDao();
+        this.walletService = new WalletService();
+        this.maintenanceService = new MaintenanceService();
     }
 
     /**
-     * Rents a cycle for a user using their polymorphic pricing strategy.
+     * Rents a cycle for a user using their polymorphic pricing strategy and wallet balance.
      */
     public Rental rentCycle(User user, Cycle cycle, int durationHours, PaymentMethod paymentMethod, String notes) throws Exception {
         if (user == null || cycle == null) {
             throw new IllegalArgumentException("User and Cycle must not be null.");
         }
 
-        // Check if user already has an active rental
+        // Active rental check
         Optional<Rental> activeRental = rentalDao.findActiveRentalByUser(user.getId());
         if (activeRental.isPresent()) {
-            throw new IllegalStateException("You already have an active cycle rental (" + activeRental.get().getCycleName() + "). Please return it before booking another.");
+            throw new IllegalStateException("You already have an active ride (" + activeRental.get().getCycleName() + "). Please return it before booking another.");
         }
 
-        // Check cycle availability
+        // Cycle availability check
         if (!cycle.isAvailable()) {
-            throw new IllegalStateException("Cycle is currently not available for rent.");
+            throw new IllegalStateException("Selected cycle is currently unavailable.");
         }
 
         // Calculate dynamic cost based on user's OOP PricingStrategy
         double totalCost = cycle.calculateCost(durationHours, user.getPricingStrategy());
+
+        // Check wallet balance if paying with Campus Card / Wallet
+        if (paymentMethod == PaymentMethod.CAMPUS_CARD) {
+            double currentBalance = walletService.getBalance(user.getId());
+            if (currentBalance < totalCost) {
+                throw new IllegalStateException(String.format("Insufficient Campus Pay wallet balance ($%.2f). Required: $%.2f. Please top up your wallet first.",
+                    currentBalance, totalCost));
+            }
+            walletService.deductBalance(user.getId(), totalCost, WalletTransaction.TransactionType.RENTAL_CHARGE,
+                "Prepaid Rental for " + cycle.getDisplayName());
+        }
 
         String startTime = LocalDateTime.now().format(TIME_FORMATTER);
 
@@ -74,14 +90,14 @@ public class RentalService {
 
         Rental savedRental = rentalDao.save(rental);
         if (savedRental == null) {
-            throw new RuntimeException("Failed to create rental record in database.");
+            throw new RuntimeException("Failed to record rental booking in database.");
         }
 
-        // Update cycle status in database
+        // Mark cycle as RENTED
         cycle.rentOut(user, durationHours);
         cycleDao.updateStatus(cycle.getId(), CycleStatus.RENTED, cycle.getStationId());
 
-        // Create Payment record
+        // Log payment record
         String txnRef = "TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         Payment payment = new Payment(
             0,
@@ -94,33 +110,59 @@ public class RentalService {
         );
         paymentDao.save(payment);
 
-        LOGGER.info(String.format("Rental #%d created successfully for user %s on cycle #%d. Total: $%.2f",
-            savedRental.getId(), user.getUsername(), cycle.getId(), totalCost));
+        LOGGER.info(String.format("Rental #%d created for %s on %s. Total: $%.2f",
+            savedRental.getId(), user.getUsername(), cycle.getDisplayName(), totalCost));
 
         return savedRental;
     }
 
     /**
-     * Returns an active rental to a chosen dock station.
+     * Returns an active rental to a dock station with overtime detection and damage ticketing.
      */
-    public boolean returnCycle(Rental rental, int returnStationId, String returnNotes) {
+    public ReturnReceipt returnCycle(Rental rental, int returnStationId, String returnNotes,
+                                     boolean reportDamage, MaintenanceTicket.IssueCategory damageCategory, String damageDetails) {
         if (rental == null || !rental.isActive()) {
-            return false;
+            return null;
         }
 
-        String returnTime = LocalDateTime.now().format(TIME_FORMATTER);
+        LocalDateTime startDt = LocalDateTime.parse(rental.getStartTime(), TIME_FORMATTER);
+        LocalDateTime now = LocalDateTime.now();
+        String returnTime = now.format(TIME_FORMATTER);
+
+        long actualMinutes = Math.max(1, Duration.between(startDt, now).toMinutes());
+        long scheduledMinutes = rental.getDurationHours() * 60L;
+
+        double overdueFine = 0.0;
+        if (actualMinutes > scheduledMinutes) {
+            long extraMinutes = actualMinutes - scheduledMinutes;
+            overdueFine = Math.ceil(extraMinutes / 15.0) * 1.50; // $1.50 per 15 min overdue
+            overdueFine = Math.round(overdueFine * 100.0) / 100.0;
+
+            // Deduct overdue fine from wallet if available
+            walletService.deductBalance(rental.getUserId(), overdueFine,
+                WalletTransaction.TransactionType.OVERDUE_FINE,
+                "Overtime fine (" + extraMinutes + " min overdue on rental #" + rental.getId() + ")");
+        }
+
         rental.setEndTime(returnTime);
         rental.setStatus(RentalStatus.COMPLETED);
         rental.setEndStationId(returnStationId);
+        rental.setTotalCost(rental.getTotalCost() + overdueFine);
         rental.setNotes((rental.getNotes() != null ? rental.getNotes() + " | " : "") + "Returned: " + returnNotes);
 
         boolean rentalUpdated = rentalDao.update(rental);
         if (!rentalUpdated) {
-            return false;
+            return null;
         }
 
-        // Update cycle to AVAILABLE at new station
-        cycleDao.updateStatus(rental.getCycleId(), CycleStatus.AVAILABLE, returnStationId);
+        // Damage reporting workflow
+        if (reportDamage && damageCategory != null) {
+            maintenanceService.reportIssue(rental.getCycleId(), rental.getUserId(), damageCategory, damageDetails);
+            // Cycle remains in MAINTENANCE status as set by maintenanceService
+        } else {
+            // Restore cycle to AVAILABLE at the new station
+            cycleDao.updateStatus(rental.getCycleId(), CycleStatus.AVAILABLE, returnStationId);
+        }
 
         // Award student loyalty points
         Optional<User> userOpt = userDao.findById(rental.getUserId());
@@ -130,8 +172,10 @@ public class RentalService {
             userDao.update(student);
         }
 
-        LOGGER.info("Rental #" + rental.getId() + " returned successfully to station #" + returnStationId);
-        return true;
+        LOGGER.info(String.format("Rental #%d closed. Actual ride: %d min. Overtime fine: $%.2f",
+            rental.getId(), actualMinutes, overdueFine));
+
+        return new ReturnReceipt(rental.getId(), rental.getCycleName(), actualMinutes, rental.getTotalCost(), overdueFine, 10);
     }
 
     public Optional<Rental> getActiveRentalForUser(int userId) {
@@ -145,4 +189,6 @@ public class RentalService {
     public List<Rental> getAllRentals() {
         return rentalDao.findAll();
     }
+
+    public record ReturnReceipt(int rentalId, String cycleName, long actualMinutes, double totalCharged, double overdueFine, int loyaltyPointsEarned) {}
 }

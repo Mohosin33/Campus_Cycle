@@ -11,9 +11,12 @@ public class Staff extends User {
     private String department;
     private static final PricingStrategy PRICING_STRATEGY = new StaffPricingStrategy();
 
-    public Staff(int id, String username, String password, String fullName, String email, String phone,
-                 String employeeId, String department) {
-        super(id, username, password, fullName, email, phone, UserRole.STAFF);
+    public Staff(int id, String username, String passwordHash, String passwordSalt,
+                 String fullName, String email, String phone,
+                 String employeeId, String department,
+                 double walletBalance, boolean isActive, String createdAt) {
+        super(id, username, passwordHash, passwordSalt, fullName, email, phone,
+              UserRole.STAFF, walletBalance, isActive, createdAt);
         this.employeeId = employeeId;
         this.department = department;
     }
@@ -35,7 +38,7 @@ public class Staff extends User {
 
     @Override
     public boolean canRentCycles() {
-        return true;
+        return isActive;
     }
 
     @Override

@@ -11,9 +11,12 @@ public class Admin extends User {
     private String department;
     private static final PricingStrategy PRICING_STRATEGY = new StandardPricingStrategy();
 
-    public Admin(int id, String username, String password, String fullName, String email, String phone,
-                 String adminBadgeId, String department) {
-        super(id, username, password, fullName, email, phone, UserRole.ADMIN);
+    public Admin(int id, String username, String passwordHash, String passwordSalt,
+                 String fullName, String email, String phone,
+                 String adminBadgeId, String department,
+                 double walletBalance, boolean isActive, String createdAt) {
+        super(id, username, passwordHash, passwordSalt, fullName, email, phone,
+              UserRole.ADMIN, walletBalance, isActive, createdAt);
         this.adminBadgeId = adminBadgeId;
         this.department = department != null ? department : "Campus Logistics";
     }

@@ -4,26 +4,36 @@ import com.campuscycle.service.oop.Identifiable;
 import com.campuscycle.service.oop.PricingStrategy;
 
 /**
- * Abstract base class representing a user in the CampusCycle system.
- * Demonstrates Abstraction and Inheritance (Advanced OOP Concept).
+ * Production Abstract base class representing a user in the CampusCycle system.
+ * Features salted password hashing and prepaid campus wallet balance.
  */
 public abstract class User implements Identifiable {
     protected int id;
     protected String username;
-    protected String password;
+    protected String passwordHash;
+    protected String passwordSalt;
     protected String fullName;
     protected String email;
     protected String phone;
     protected UserRole role;
+    protected double walletBalance;
+    protected boolean isActive;
+    protected String createdAt;
 
-    public User(int id, String username, String password, String fullName, String email, String phone, UserRole role) {
+    public User(int id, String username, String passwordHash, String passwordSalt,
+                String fullName, String email, String phone, UserRole role,
+                double walletBalance, boolean isActive, String createdAt) {
         this.id = id;
         this.username = username;
-        this.password = password;
+        this.passwordHash = passwordHash;
+        this.passwordSalt = passwordSalt;
         this.fullName = fullName;
         this.email = email;
         this.phone = phone;
         this.role = role;
+        this.walletBalance = walletBalance;
+        this.isActive = isActive;
+        this.createdAt = createdAt;
     }
 
     // Abstract methods to be overridden by subclasses (Polymorphism)
@@ -51,12 +61,20 @@ public abstract class User implements Identifiable {
         this.username = username;
     }
 
-    public String getPassword() {
-        return password;
+    public String getPasswordHash() {
+        return passwordHash;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public String getPasswordSalt() {
+        return passwordSalt;
+    }
+
+    public void setPasswordSalt(String passwordSalt) {
+        this.passwordSalt = passwordSalt;
     }
 
     public String getFullName() {
@@ -89,6 +107,30 @@ public abstract class User implements Identifiable {
 
     public void setRole(UserRole role) {
         this.role = role;
+    }
+
+    public double getWalletBalance() {
+        return walletBalance;
+    }
+
+    public void setWalletBalance(double walletBalance) {
+        this.walletBalance = walletBalance;
+    }
+
+    public boolean isActive() {
+        return isActive;
+    }
+
+    public void setActive(boolean active) {
+        isActive = active;
+    }
+
+    public String getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
     }
 
     @Override

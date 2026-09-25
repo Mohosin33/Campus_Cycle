@@ -1,6 +1,9 @@
 @echo off
 title CampusCycle - Desktop Application
-echo Starting CampusCycle...
+cd /d "%~dp0"
+echo ===================================================
+echo     Starting CampusCycle Desktop Application...
+echo ===================================================
 
 REM Set Java Home to the installed OpenJDK runtime
 if exist "E:\Downloads\IntelliJ IDEA 2026.2.1\jbr\bin\java.exe" (
@@ -8,6 +11,9 @@ if exist "E:\Downloads\IntelliJ IDEA 2026.2.1\jbr\bin\java.exe" (
     set "PATH=E:\Downloads\IntelliJ IDEA 2026.2.1\plugins\maven-plugin\lib\maven3\bin;%JAVA_HOME%\bin;%PATH%"
 )
 
+echo Working Directory: %CD%
 echo Using JAVA_HOME: %JAVA_HOME%
-mvn clean javafx:run
+
+call "E:\Downloads\IntelliJ IDEA 2026.2.1\plugins\maven-plugin\lib\maven3\bin\mvn.cmd" javafx:run
+
 pause

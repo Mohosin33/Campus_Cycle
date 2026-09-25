@@ -4,6 +4,7 @@ import com.campuscycle.model.Staff;
 import com.campuscycle.model.Student;
 import com.campuscycle.model.User;
 import com.campuscycle.model.UserRole;
+import com.campuscycle.security.InputValidator;
 import com.campuscycle.service.AuthService;
 import com.campuscycle.ui.NavigationManager;
 import javafx.geometry.Insets;
@@ -12,8 +13,11 @@ import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 /**
- * Registration View for new students and staff members.
+ * Production Registration View with strict validation and cryptographic setup.
  */
 public class RegisterView {
     private final AuthService authService;
@@ -26,48 +30,63 @@ public class RegisterView {
     }
 
     private void buildUI() {
-        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #f1f5f9, #e2e8f0);");
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #0f172a, #1e293b);");
 
         BorderPane layout = new BorderPane();
 
         // Top Bar
         HBox topBar = new HBox(12);
         topBar.setAlignment(Pos.CENTER_LEFT);
-        topBar.setPadding(new Insets(16, 24, 16, 24));
-        topBar.setStyle("-fx-background-color: #ffffff; -fx-border-color: #e2e8f0; -fx-border-width: 0 0 1 0;");
-        Label logoLabel = new Label("🚲 CampusCycle - User Registration");
-        logoLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #2563eb;");
+        topBar.setPadding(new Insets(16, 28, 16, 28));
+        topBar.setStyle("-fx-background-color: rgba(15, 23, 42, 0.85); -fx-border-color: #334155; -fx-border-width: 0 0 1 0;");
+        Label logoLabel = new Label("🚲 CampusCycle • Rider Registration");
+        logoLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;");
         topBar.getChildren().add(logoLabel);
         layout.setTop(topBar);
 
         // Center Card
         VBox card = new VBox(16);
         card.setAlignment(Pos.CENTER);
-        card.setPadding(new Insets(28, 32, 28, 32));
+        card.setPadding(new Insets(30, 36, 30, 36));
         card.getStyleClass().add("card");
-        card.maxWidthProperty().bind(root.widthProperty().multiply(0.48));
-        card.minWidthProperty().set(380);
+        card.setStyle("-fx-background-color: #ffffff; -fx-background-radius: 12; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.25), 20, 0, 0, 6);");
+        card.maxWidthProperty().bind(root.widthProperty().multiply(0.46));
+        card.minWidthProperty().set(400);
 
-        Label title = new Label("Create Campus Account");
+        Label title = new Label("Create Your Campus Mobility Account");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #0f172a;");
 
+        Label perkLabel = new Label("✨ Includes $20.00 Welcome Campus Pay Credit + Free Helmet Checkout");
+        perkLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #16a34a; -fx-font-weight: 600;");
+
         GridPane grid = new GridPane();
-        grid.setHgap(10);
+        grid.setHgap(12);
         grid.setVgap(12);
 
         TextField nameField = new TextField();
+        nameField.setPromptText("Your official full name");
+
         TextField userField = new TextField();
+        userField.setPromptText("Alphanumeric username (e.g. jdoe)");
+
         PasswordField passField = new PasswordField();
+        passField.setPromptText("At least 6 characters");
+
         TextField emailField = new TextField();
+        emailField.setPromptText("e.g. name@campuscycle.edu");
+
         TextField phoneField = new TextField();
+        phoneField.setPromptText("+880 1700-000000");
+
         ComboBox<UserRole> roleCombo = new ComboBox<>();
         roleCombo.getItems().addAll(UserRole.STUDENT, UserRole.STAFF);
         roleCombo.setValue(UserRole.STUDENT);
 
         TextField idField = new TextField();
-        idField.setPromptText("e.g. 2023-1-60-101");
+        idField.setPromptText("Student ID (e.g. 2023-1-60-101)");
+
         TextField deptField = new TextField();
-        deptField.setPromptText("e.g. Computer Science");
+        deptField.setPromptText("Academic Department");
 
         grid.add(new Label("Full Name:"), 0, 0);
         grid.add(nameField, 1, 0);
@@ -78,13 +97,13 @@ public class RegisterView {
         grid.add(new Label("Password:"), 0, 2);
         grid.add(passField, 1, 2);
 
-        grid.add(new Label("Email:"), 0, 3);
+        grid.add(new Label("Campus Email:"), 0, 3);
         grid.add(emailField, 1, 3);
 
         grid.add(new Label("Phone:"), 0, 4);
         grid.add(phoneField, 1, 4);
 
-        grid.add(new Label("Account Role:"), 0, 5);
+        grid.add(new Label("Role:"), 0, 5);
         grid.add(roleCombo, 1, 5);
 
         Label specificLabel = new Label("Student ID:");
@@ -105,11 +124,13 @@ public class RegisterView {
         });
 
         Label statusLabel = new Label();
-        statusLabel.setStyle("-fx-font-weight: bold;");
+        statusLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+        statusLabel.setWrapText(true);
         statusLabel.setVisible(false);
 
-        Button submitBtn = new Button("Register Account");
+        Button submitBtn = new Button("Register & Claim $20 Credit");
         submitBtn.getStyleClass().add("btn-primary");
+        submitBtn.setPrefHeight(40);
         submitBtn.setMaxWidth(Double.MAX_VALUE);
 
         submitBtn.setOnAction(e -> {
@@ -122,37 +143,62 @@ public class RegisterView {
             String dept = deptField.getText().trim();
 
             if (name.isEmpty() || user.isEmpty() || pass.isEmpty()) {
-                statusLabel.setText("Please fill in all required fields.");
+                statusLabel.setText("Name, username, and password are required.");
                 statusLabel.setStyle("-fx-text-fill: #ef4444;");
                 statusLabel.setVisible(true);
                 return;
             }
 
-            User newUser;
-            if (roleCombo.getValue() == UserRole.STAFF) {
-                newUser = new Staff(0, user, pass, name, email, phone, specId, dept);
-            } else {
-                newUser = new Student(0, user, pass, name, email, phone, specId, dept, 15);
+            if (!InputValidator.isValidUsername(user)) {
+                statusLabel.setText("Username must be 3-24 characters (letters, numbers, underscore only).");
+                statusLabel.setStyle("-fx-text-fill: #ef4444;");
+                statusLabel.setVisible(true);
+                return;
             }
 
-            if (authService.register(newUser)) {
-                statusLabel.setText("Registration successful! Redirecting to login...");
+            if (!InputValidator.isStrongPassword(pass)) {
+                statusLabel.setText("Password must be at least 6 characters long.");
+                statusLabel.setStyle("-fx-text-fill: #ef4444;");
+                statusLabel.setVisible(true);
+                return;
+            }
+
+            if (!email.isEmpty() && !InputValidator.isValidEmail(email)) {
+                statusLabel.setText("Please enter a valid email address.");
+                statusLabel.setStyle("-fx-text-fill: #ef4444;");
+                statusLabel.setVisible(true);
+                return;
+            }
+
+            String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            double welcomeCredit = 20.0;
+
+            User newUser;
+            if (roleCombo.getValue() == UserRole.STAFF) {
+                newUser = new Staff(0, user, "", "", name, email, phone, specId, dept, welcomeCredit, true, now);
+            } else {
+                newUser = new Student(0, user, "", "", name, email, phone, specId, dept, 15, welcomeCredit, true, now);
+            }
+
+            if (authService.register(newUser, pass)) {
+                statusLabel.setText("Registration successful! Opening sign-in screen...");
                 statusLabel.setStyle("-fx-text-fill: #10b981;");
                 statusLabel.setVisible(true);
                 NavigationManager.getInstance().showLoginView();
             } else {
-                statusLabel.setText("Registration failed: Username already exists.");
+                statusLabel.setText("Username already exists. Please choose a different username.");
                 statusLabel.setStyle("-fx-text-fill: #ef4444;");
                 statusLabel.setVisible(true);
             }
         });
 
-        Button backBtn = new Button("Back to Login");
+        Button backBtn = new Button("Back to Sign In");
         backBtn.getStyleClass().add("btn-secondary");
+        backBtn.setPrefHeight(38);
         backBtn.setMaxWidth(Double.MAX_VALUE);
         backBtn.setOnAction(e -> NavigationManager.getInstance().showLoginView());
 
-        card.getChildren().addAll(title, grid, statusLabel, submitBtn, backBtn);
+        card.getChildren().addAll(title, perkLabel, grid, statusLabel, submitBtn, backBtn);
 
         ScrollPane scroll = new ScrollPane(new StackPane(card));
         scroll.setFitToWidth(true);
