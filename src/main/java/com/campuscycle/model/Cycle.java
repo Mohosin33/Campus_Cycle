@@ -20,10 +20,12 @@ public class Cycle implements Rentable, Identifiable {
     private int batteryPercentage; // 0-100 for Electric, -1 if manual
     private int totalRides;
     private String lastMaintainedDate;
+    private int ownerId;       // FK → users.id where role = OWNER
+    private String ownerName;  // denormalized for display
 
     public Cycle(int id, String model, String brand, CycleType type, double hourlyRate,
                  CycleStatus status, int stationId, String stationName, int batteryPercentage,
-                 int totalRides, String lastMaintainedDate) {
+                 int totalRides, String lastMaintainedDate, int ownerId, String ownerName) {
         this.id = id;
         this.model = model;
         this.brand = brand;
@@ -35,12 +37,32 @@ public class Cycle implements Rentable, Identifiable {
         this.batteryPercentage = batteryPercentage;
         this.totalRides = totalRides;
         this.lastMaintainedDate = lastMaintainedDate;
+        this.ownerId = ownerId;
+        this.ownerName = ownerName;
     }
 
+    /** Convenience constructor (without owner — for anonymous/admin cycles) */
+    public Cycle(int id, String model, String brand, CycleType type, double hourlyRate,
+                 CycleStatus status, int stationId, String stationName, int batteryPercentage,
+                 int totalRides, String lastMaintainedDate) {
+        this(id, model, brand, type, hourlyRate, status, stationId, stationName,
+             batteryPercentage, totalRides, lastMaintainedDate, 0, "");
+    }
+
+    /** Short constructor used in forms/tests */
     public Cycle(int id, String model, String brand, CycleType type, double hourlyRate,
                  CycleStatus status, int stationId, int batteryPercentage) {
-        this(id, model, brand, type, hourlyRate, status, stationId, "Station " + stationId, batteryPercentage, 0, "2026-09-01");
+        this(id, model, brand, type, hourlyRate, status, stationId, "Station " + stationId,
+             batteryPercentage, 0, "2026-09-01", 0, "");
     }
+
+    /** Owner-linked constructor */
+    public Cycle(int id, String model, String brand, CycleType type, double hourlyRate,
+                 CycleStatus status, int stationId, int batteryPercentage, int ownerId) {
+        this(id, model, brand, type, hourlyRate, status, stationId, "Station " + stationId,
+             batteryPercentage, 0, "2026-09-01", ownerId, "");
+    }
+
 
     // Implementing Rentable interface methods
     @Override
@@ -131,37 +153,19 @@ public class Cycle implements Rentable, Identifiable {
         this.stationId = stationId;
     }
 
-    public String getStationName() {
-        return stationName;
-    }
+    public String getStationName() { return stationName; }
+    public void setStationName(String stationName) { this.stationName = stationName; }
+    public int getBatteryPercentage() { return batteryPercentage; }
+    public void setBatteryPercentage(int batteryPercentage) { this.batteryPercentage = batteryPercentage; }
+    public int getTotalRides() { return totalRides; }
+    public void setTotalRides(int totalRides) { this.totalRides = totalRides; }
+    public String getLastMaintainedDate() { return lastMaintainedDate; }
+    public void setLastMaintainedDate(String lastMaintainedDate) { this.lastMaintainedDate = lastMaintainedDate; }
 
-    public void setStationName(String stationName) {
-        this.stationName = stationName;
-    }
-
-    public int getBatteryPercentage() {
-        return batteryPercentage;
-    }
-
-    public void setBatteryPercentage(int batteryPercentage) {
-        this.batteryPercentage = batteryPercentage;
-    }
-
-    public int getTotalRides() {
-        return totalRides;
-    }
-
-    public void setTotalRides(int totalRides) {
-        this.totalRides = totalRides;
-    }
-
-    public String getLastMaintainedDate() {
-        return lastMaintainedDate;
-    }
-
-    public void setLastMaintainedDate(String lastMaintainedDate) {
-        this.lastMaintainedDate = lastMaintainedDate;
-    }
+    public int getOwnerId() { return ownerId; }
+    public void setOwnerId(int ownerId) { this.ownerId = ownerId; }
+    public String getOwnerName() { return ownerName != null ? ownerName : ""; }
+    public void setOwnerName(String ownerName) { this.ownerName = ownerName; }
 
     @Override
     public String toString() {

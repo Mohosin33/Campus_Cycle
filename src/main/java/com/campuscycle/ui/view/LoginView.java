@@ -114,10 +114,10 @@ public class LoginView {
             if (authService.login(username, password)) {
                 errorLabel.setVisible(false);
                 User user = authService.getCurrentUser();
-                if (user.getRole() == UserRole.ADMIN) {
-                    NavigationManager.getInstance().showAdminDashboard();
-                } else {
-                    NavigationManager.getInstance().showStudentDashboard();
+                switch (user.getRole()) {
+                    case ADMIN -> NavigationManager.getInstance().showAdminDashboard();
+                    case OWNER -> NavigationManager.getInstance().showOwnerDashboard();
+                    case RIDER -> NavigationManager.getInstance().showStudentDashboard();
                 }
             } else {
                 errorLabel.setText("Invalid credentials or account is suspended.");
@@ -138,6 +138,21 @@ public class LoginView {
         Label securityBadge = new Label("🔒 256-Bit SHA Encrypted Authentication & Secure Docking");
         securityBadge.setStyle("-fx-font-size: 11px; -fx-text-fill: #94a3b8;");
 
+        // Demo credentials hint
+        VBox hintBox = new VBox(4);
+        hintBox.setStyle("-fx-background-color: #f0fdf4; -fx-border-color: #86efac; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 10;");
+        Label hintTitle = new Label("📋 Demo Credentials");
+        hintTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: #166534;");
+        Label hintAdmin  = new Label("Admin  →  admin / admin123");
+        Label hintOwner1 = new Label("Owner  →  owner1 / owner123   (Karim Rahman — 5 cycles)");
+        Label hintOwner2 = new Label("Owner  →  owner2 / owner123   (Sadia Islam — 5 cycles)");
+        Label hintRider1 = new Label("Rider  →  rider1 / rider123   (Mohosin Khan)");
+        Label hintRider2 = new Label("Rider  →  rider2 / rider123   (Sara Ahmed)");
+        for (Label l : new Label[]{hintAdmin, hintOwner1, hintOwner2, hintRider1, hintRider2}) {
+            l.setStyle("-fx-font-size: 11px; -fx-text-fill: #15803d; -fx-font-family: monospace;");
+        }
+        hintBox.getChildren().addAll(hintTitle, hintAdmin, hintOwner1, hintOwner2, hintRider1, hintRider2);
+
         card.getChildren().addAll(
             welcomeTitle,
             welcomeSub,
@@ -146,6 +161,7 @@ public class LoginView {
             loginBtn,
             registerBtn,
             new Separator(),
+            hintBox,
             securityBadge
         );
 

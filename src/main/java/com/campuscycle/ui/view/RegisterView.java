@@ -1,7 +1,7 @@
 package com.campuscycle.ui.view;
 
-import com.campuscycle.model.Staff;
-import com.campuscycle.model.Student;
+import com.campuscycle.model.Owner;
+import com.campuscycle.model.Rider;
 import com.campuscycle.model.User;
 import com.campuscycle.model.UserRole;
 import com.campuscycle.security.InputValidator;
@@ -18,6 +18,7 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * Production Registration View with strict validation and cryptographic setup.
+ * Allows new users to register as Rider or Owner.
  */
 public class RegisterView {
     private final AuthService authService;
@@ -39,7 +40,7 @@ public class RegisterView {
         topBar.setAlignment(Pos.CENTER_LEFT);
         topBar.setPadding(new Insets(16, 28, 16, 28));
         topBar.setStyle("-fx-background-color: rgba(15, 23, 42, 0.85); -fx-border-color: #334155; -fx-border-width: 0 0 1 0;");
-        Label logoLabel = new Label("🚲 CampusCycle • Rider Registration");
+        Label logoLabel = new Label("🚲 CampusCycle • Account Registration");
         logoLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #38bdf8;");
         topBar.getChildren().add(logoLabel);
         layout.setTop(topBar);
@@ -56,7 +57,7 @@ public class RegisterView {
         Label title = new Label("Create Your Campus Mobility Account");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #0f172a;");
 
-        Label perkLabel = new Label("✨ Includes $20.00 Welcome Campus Pay Credit + Free Helmet Checkout");
+        Label perkLabel = new Label("✨ Riders receive $20.00 Welcome Campus Pay Credit on sign-up");
         perkLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #16a34a; -fx-font-weight: 600;");
 
         GridPane grid = new GridPane();
@@ -79,47 +80,39 @@ public class RegisterView {
         phoneField.setPromptText("+880 1700-000000");
 
         ComboBox<UserRole> roleCombo = new ComboBox<>();
-        roleCombo.getItems().addAll(UserRole.STUDENT, UserRole.STAFF);
-        roleCombo.setValue(UserRole.STUDENT);
+        roleCombo.getItems().addAll(UserRole.RIDER, UserRole.OWNER);
+        roleCombo.setValue(UserRole.RIDER);
 
         TextField idField = new TextField();
-        idField.setPromptText("Student ID (e.g. 2023-1-60-101)");
+        idField.setPromptText("Rider ID (e.g. RDR-101)");
 
         TextField deptField = new TextField();
-        deptField.setPromptText("Academic Department");
+        deptField.setPromptText("Department / Area of Operations");
 
-        grid.add(new Label("Full Name:"), 0, 0);
-        grid.add(nameField, 1, 0);
+        grid.add(new Label("Full Name:"),    0, 0); grid.add(nameField,  1, 0);
+        grid.add(new Label("Username:"),     0, 1); grid.add(userField,  1, 1);
+        grid.add(new Label("Password:"),     0, 2); grid.add(passField,  1, 2);
+        grid.add(new Label("Campus Email:"), 0, 3); grid.add(emailField, 1, 3);
+        grid.add(new Label("Phone:"),        0, 4); grid.add(phoneField, 1, 4);
+        grid.add(new Label("Role:"),         0, 5); grid.add(roleCombo,  1, 5);
 
-        grid.add(new Label("Username:"), 0, 1);
-        grid.add(userField, 1, 1);
-
-        grid.add(new Label("Password:"), 0, 2);
-        grid.add(passField, 1, 2);
-
-        grid.add(new Label("Campus Email:"), 0, 3);
-        grid.add(emailField, 1, 3);
-
-        grid.add(new Label("Phone:"), 0, 4);
-        grid.add(phoneField, 1, 4);
-
-        grid.add(new Label("Role:"), 0, 5);
-        grid.add(roleCombo, 1, 5);
-
-        Label specificLabel = new Label("Student ID:");
+        Label specificLabel = new Label("Rider ID:");
         grid.add(specificLabel, 0, 6);
         grid.add(idField, 1, 6);
 
-        grid.add(new Label("Department:"), 0, 7);
-        grid.add(deptField, 1, 7);
+        grid.add(new Label("Department:"), 0, 7); grid.add(deptField, 1, 7);
 
         roleCombo.setOnAction(e -> {
-            if (roleCombo.getValue() == UserRole.STAFF) {
-                specificLabel.setText("Employee ID:");
-                idField.setPromptText("e.g. EMP-402");
+            if (roleCombo.getValue() == UserRole.OWNER) {
+                specificLabel.setText("Owner ID:");
+                idField.setPromptText("e.g. OWN-201 or NID");
+                perkLabel.setText("🏪 As an Owner you can list your cycles and earn rental income");
+                perkLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #7c3aed; -fx-font-weight: 600;");
             } else {
-                specificLabel.setText("Student ID:");
-                idField.setPromptText("e.g. 2023-1-60-101");
+                specificLabel.setText("Rider ID:");
+                idField.setPromptText("Rider ID (e.g. RDR-101)");
+                perkLabel.setText("✨ Riders receive $20.00 Welcome Campus Pay Credit on sign-up");
+                perkLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #16a34a; -fx-font-weight: 600;");
             }
         });
 
@@ -128,19 +121,19 @@ public class RegisterView {
         statusLabel.setWrapText(true);
         statusLabel.setVisible(false);
 
-        Button submitBtn = new Button("Register & Claim $20 Credit");
+        Button submitBtn = new Button("Create Account");
         submitBtn.getStyleClass().add("btn-primary");
         submitBtn.setPrefHeight(40);
         submitBtn.setMaxWidth(Double.MAX_VALUE);
 
         submitBtn.setOnAction(e -> {
-            String name = nameField.getText().trim();
-            String user = userField.getText().trim();
-            String pass = passField.getText().trim();
-            String email = emailField.getText().trim();
-            String phone = phoneField.getText().trim();
+            String name   = nameField.getText().trim();
+            String user   = userField.getText().trim();
+            String pass   = passField.getText().trim();
+            String email  = emailField.getText().trim();
+            String phone  = phoneField.getText().trim();
             String specId = idField.getText().trim();
-            String dept = deptField.getText().trim();
+            String dept   = deptField.getText().trim();
 
             if (name.isEmpty() || user.isEmpty() || pass.isEmpty()) {
                 statusLabel.setText("Name, username, and password are required.");
@@ -171,17 +164,17 @@ public class RegisterView {
             }
 
             String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-            double welcomeCredit = 20.0;
+            double welcomeCredit = roleCombo.getValue() == UserRole.RIDER ? 20.0 : 0.0;
 
             User newUser;
-            if (roleCombo.getValue() == UserRole.STAFF) {
-                newUser = new Staff(0, user, "", "", name, email, phone, specId, dept, welcomeCredit, true, now);
+            if (roleCombo.getValue() == UserRole.OWNER) {
+                newUser = new Owner(0, user, "", "", name, email, phone, specId, dept, welcomeCredit, true, now);
             } else {
-                newUser = new Student(0, user, "", "", name, email, phone, specId, dept, 15, welcomeCredit, true, now);
+                newUser = new Rider(0, user, "", "", name, email, phone, specId, dept, 0, welcomeCredit, true, now);
             }
 
             if (authService.register(newUser, pass)) {
-                statusLabel.setText("Registration successful! Opening sign-in screen...");
+                statusLabel.setText("Registration successful! Redirecting to sign-in...");
                 statusLabel.setStyle("-fx-text-fill: #10b981;");
                 statusLabel.setVisible(true);
                 NavigationManager.getInstance().showLoginView();
@@ -200,15 +193,13 @@ public class RegisterView {
 
         card.getChildren().addAll(title, perkLabel, grid, statusLabel, submitBtn, backBtn);
 
-        ScrollPane scroll = new ScrollPane(new StackPane(card));
-        scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
-        layout.setCenter(scroll);
+        StackPane centerContainer = new StackPane(card);
+        centerContainer.setPadding(new Insets(24));
+        centerContainer.setAlignment(Pos.CENTER);
+        layout.setCenter(centerContainer);
 
         root.getChildren().add(layout);
     }
 
-    public Parent getView() {
-        return root;
-    }
+    public Parent getView() { return root; }
 }

@@ -35,12 +35,18 @@ public class RentalDao implements GenericDao<Rental, Integer> {
             pstmt.setInt(1, rental.getUserId());
             pstmt.setInt(2, rental.getCycleId());
             pstmt.setString(3, rental.getStartTime());
-            pstmt.setString(4, rental.getEndTime());
+            // end_time is NULL for an active rental
+            if (rental.getEndTime() != null) pstmt.setString(4, rental.getEndTime());
+            else pstmt.setNull(4, Types.VARCHAR);
             pstmt.setInt(5, rental.getDurationHours());
             pstmt.setDouble(6, rental.getTotalCost());
             pstmt.setString(7, rental.getStatus().name());
-            pstmt.setInt(8, rental.getStartStationId());
-            pstmt.setInt(9, rental.getEndStationId());
+            // start_station_id: use NULL if 0 (no valid station)
+            if (rental.getStartStationId() > 0) pstmt.setInt(8, rental.getStartStationId());
+            else pstmt.setNull(8, Types.INTEGER);
+            // end_station_id: always NULL for a new/active rental
+            if (rental.getEndStationId() > 0) pstmt.setInt(9, rental.getEndStationId());
+            else pstmt.setNull(9, Types.INTEGER);
             pstmt.setString(10, rental.getNotes());
 
             int affected = pstmt.executeUpdate();
@@ -53,7 +59,7 @@ public class RentalDao implements GenericDao<Rental, Integer> {
             }
             return rental;
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Error creating rental", e);
+            LOGGER.log(Level.SEVERE, "Error creating rental: " + e.getMessage(), e);
             return null;
         }
     }
@@ -159,17 +165,19 @@ public class RentalDao implements GenericDao<Rental, Integer> {
         """;
         try (Connection conn = dbManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, rental.getEndTime());
+            if (rental.getEndTime() != null) pstmt.setString(1, rental.getEndTime());
+            else pstmt.setNull(1, Types.VARCHAR);
             pstmt.setInt(2, rental.getDurationHours());
             pstmt.setDouble(3, rental.getTotalCost());
             pstmt.setString(4, rental.getStatus().name());
-            pstmt.setInt(5, rental.getEndStationId());
+            if (rental.getEndStationId() > 0) pstmt.setInt(5, rental.getEndStationId());
+            else pstmt.setNull(5, Types.INTEGER);
             pstmt.setString(6, rental.getNotes());
             pstmt.setInt(7, rental.getId());
 
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Error updating rental: " + rental.getId(), e);
+            LOGGER.log(Level.SEVERE, "Error updating rental: " + rental.getId() + " - " + e.getMessage(), e);
             return false;
         }
     }

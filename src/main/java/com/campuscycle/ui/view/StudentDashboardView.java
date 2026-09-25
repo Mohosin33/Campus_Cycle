@@ -106,8 +106,8 @@ public class StudentDashboardView {
         brandTitle.getStyleClass().add("brand-title");
 
         String subtitleText = currentUser.getFullName() + " • " + currentUser.getRole().getDisplayName();
-        if (currentUser instanceof Student) {
-            subtitleText += " (" + ((Student) currentUser).getStudentId() + ")";
+        if (currentUser instanceof Rider rider) {
+            subtitleText += " (" + rider.getRiderId() + ")";
         }
         Label brandSub = new Label(subtitleText);
         brandSub.getStyleClass().add("brand-subtitle");
@@ -476,8 +476,8 @@ public class StudentDashboardView {
         double balance = walletService.getBalance(user.getId());
         walletBalanceLabel.setText(String.format("💳 Campus Pay: $%.2f", balance));
 
-        if (user instanceof Student) {
-            loyaltyPointsLabel.setText("⭐ " + ((Student) user).getLoyaltyPoints() + " Pts");
+        if (user instanceof Rider rider) {
+            loyaltyPointsLabel.setText("⭐ " + rider.getLoyaltyPoints() + " Pts");
             loyaltyPointsLabel.setVisible(true);
         } else {
             loyaltyPointsLabel.setVisible(false);

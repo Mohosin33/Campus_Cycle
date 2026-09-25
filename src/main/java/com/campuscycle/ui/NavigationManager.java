@@ -3,6 +3,7 @@ package com.campuscycle.ui;
 import com.campuscycle.service.AuthService;
 import com.campuscycle.ui.view.AdminDashboardView;
 import com.campuscycle.ui.view.LoginView;
+import com.campuscycle.ui.view.OwnerDashboardView;
 import com.campuscycle.ui.view.RegisterView;
 import com.campuscycle.ui.view.StudentDashboardView;
 import javafx.scene.Parent;
@@ -37,7 +38,7 @@ public class NavigationManager {
 
     public void showLoginView() {
         LoginView view = new LoginView();
-        switchScene(view.getView(), "CampusCycle - University Rental Portal", 900, 650);
+        switchScene(view.getView(), "CampusCycle - University Rental Portal", 900, 680);
     }
 
     public void showRegisterView() {
@@ -47,12 +48,17 @@ public class NavigationManager {
 
     public void showStudentDashboard() {
         StudentDashboardView view = new StudentDashboardView();
-        switchScene(view.getView(), "CampusCycle - Student & Staff Portal", 1100, 750);
+        switchScene(view.getView(), "CampusCycle - Rider Portal", 1100, 750);
+    }
+
+    public void showOwnerDashboard() {
+        OwnerDashboardView view = new OwnerDashboardView();
+        switchScene(view.getView(), "CampusCycle - Owner Fleet Portal", 1150, 780);
     }
 
     public void showAdminDashboard() {
         AdminDashboardView view = new AdminDashboardView();
-        switchScene(view.getView(), "CampusCycle - Fleet Administration & Ops Console", 1150, 780);
+        switchScene(view.getView(), "CampusCycle - Fleet Administration & Ops Console", 1200, 800);
     }
 
     private void switchScene(Parent root, String title, double width, double height) {

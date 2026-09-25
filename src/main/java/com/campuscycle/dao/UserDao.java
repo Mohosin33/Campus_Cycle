@@ -12,7 +12,7 @@ import java.util.logging.Logger;
 
 /**
  * Production Data Access Object for User entities.
- * Supports cryptographic salt/hash, wallet balance management, and account activation flags.
+ * Supports three roles: RIDER, OWNER, ADMIN.
  */
 public class UserDao implements GenericDao<User, Integer> {
     private static final Logger LOGGER = Logger.getLogger(UserDao.class.getName());
@@ -40,7 +40,7 @@ public class UserDao implements GenericDao<User, Integer> {
             pstmt.setString(7, user.getRole().name());
             pstmt.setString(8, user.getRoleSpecificId());
             pstmt.setString(9, user.getDepartment());
-            int points = (user instanceof Student) ? ((Student) user).getLoyaltyPoints() : 0;
+            int points = (user instanceof Rider r) ? r.getLoyaltyPoints() : 0;
             pstmt.setInt(10, points);
             pstmt.setDouble(11, user.getWalletBalance());
             pstmt.setInt(12, user.isActive() ? 1 : 0);
@@ -49,9 +49,7 @@ public class UserDao implements GenericDao<User, Integer> {
             int affected = pstmt.executeUpdate();
             if (affected > 0) {
                 try (ResultSet rs = pstmt.getGeneratedKeys()) {
-                    if (rs.next()) {
-                        user.setId(rs.getInt(1));
-                    }
+                    if (rs.next()) user.setId(rs.getInt(1));
                 }
             }
             return user;
@@ -68,9 +66,7 @@ public class UserDao implements GenericDao<User, Integer> {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, id);
             try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    return Optional.of(mapResultSetToUser(rs));
-                }
+                if (rs.next()) return Optional.of(mapResultSetToUser(rs));
             }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Error finding user by ID: " + id, e);
@@ -84,9 +80,7 @@ public class UserDao implements GenericDao<User, Integer> {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, username.trim());
             try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    return Optional.of(mapResultSetToUser(rs));
-                }
+                if (rs.next()) return Optional.of(mapResultSetToUser(rs));
             }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Error finding user by username: " + username, e);
@@ -101,11 +95,24 @@ public class UserDao implements GenericDao<User, Integer> {
         try (Connection conn = dbManager.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
-            while (rs.next()) {
-                list.add(mapResultSetToUser(rs));
-            }
+            while (rs.next()) list.add(mapResultSetToUser(rs));
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Error retrieving all users", e);
+        }
+        return list;
+    }
+
+    public List<User> findByRole(UserRole role) {
+        List<User> list = new ArrayList<>();
+        String sql = "SELECT * FROM users WHERE role = ? ORDER BY id ASC;";
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, role.name());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) list.add(mapResultSetToUser(rs));
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error finding users by role: " + role, e);
         }
         return list;
     }
@@ -124,12 +131,11 @@ public class UserDao implements GenericDao<User, Integer> {
             pstmt.setString(3, user.getPhone());
             pstmt.setString(4, user.getRoleSpecificId());
             pstmt.setString(5, user.getDepartment());
-            int points = (user instanceof Student) ? ((Student) user).getLoyaltyPoints() : 0;
+            int points = (user instanceof Rider r) ? r.getLoyaltyPoints() : 0;
             pstmt.setInt(6, points);
             pstmt.setDouble(7, user.getWalletBalance());
             pstmt.setInt(8, user.isActive() ? 1 : 0);
             pstmt.setInt(9, user.getId());
-
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Error updating user ID: " + user.getId(), e);
@@ -145,7 +151,7 @@ public class UserDao implements GenericDao<User, Integer> {
             pstmt.setInt(2, userId);
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Error updating wallet balance for user: " + userId, e);
+            LOGGER.log(Level.SEVERE, "Error updating wallet for user: " + userId, e);
             return false;
         }
     }
@@ -177,36 +183,39 @@ public class UserDao implements GenericDao<User, Integer> {
     }
 
     private User mapResultSetToUser(ResultSet rs) throws SQLException {
-        int id = rs.getInt("id");
-        String username = rs.getString("username");
-        String passHash = rs.getString("password_hash");
-        String passSalt = rs.getString("password_salt");
-        String name = rs.getString("full_name");
-        String email = rs.getString("email");
-        String phone = rs.getString("phone");
-        String roleStr = rs.getString("role");
-        String specificId = rs.getString("specific_id");
-        String dept = rs.getString("department");
-        int loyaltyPoints = rs.getInt("loyalty_points");
-        double wallet = rs.getDouble("wallet_balance");
-        boolean active = rs.getInt("is_active") == 1;
-        String createdAt = rs.getString("created_at");
+        int id              = rs.getInt("id");
+        String username     = rs.getString("username");
+        String passHash     = rs.getString("password_hash");
+        String passSalt     = rs.getString("password_salt");
+        String name         = rs.getString("full_name");
+        String email        = rs.getString("email");
+        String phone        = rs.getString("phone");
+        String roleStr      = rs.getString("role");
+        String specificId   = rs.getString("specific_id");
+        String dept         = rs.getString("department");
+        int loyaltyPoints   = rs.getInt("loyalty_points");
+        double wallet       = rs.getDouble("wallet_balance");
+        boolean active      = rs.getInt("is_active") == 1;
+        String createdAt    = rs.getString("created_at");
 
         UserRole role;
         try {
-            role = UserRole.valueOf(roleStr);
+            // Support legacy values from old DB (STUDENT→RIDER, STAFF→OWNER)
+            String normalized = roleStr;
+            if ("STUDENT".equals(roleStr)) normalized = "RIDER";
+            if ("STAFF".equals(roleStr))   normalized = "OWNER";
+            role = UserRole.valueOf(normalized);
         } catch (IllegalArgumentException e) {
-            role = UserRole.STUDENT;
+            role = UserRole.RIDER;
         }
 
-        switch (role) {
-            case ADMIN:
-                return new Admin(id, username, passHash, passSalt, name, email, phone, specificId, dept, wallet, active, createdAt);
-            case STAFF:
-                return new Staff(id, username, passHash, passSalt, name, email, phone, specificId, dept, wallet, active, createdAt);
-            case STUDENT:
-            default:
-                return new Student(id, username, passHash, passSalt, name, email, phone, specificId, dept, loyaltyPoints, wallet, active, createdAt);
-        }
+        return switch (role) {
+            case ADMIN -> new Admin(id, username, passHash, passSalt, name, email, phone,
+                                   specificId, dept, wallet, active, createdAt);
+            case OWNER -> new Owner(id, username, passHash, passSalt, name, email, phone,
+                                   specificId, dept, wallet, active, createdAt);
+            case RIDER -> new Rider(id, username, passHash, passSalt, name, email, phone,
+                                   specificId, dept, loyaltyPoints, wallet, active, createdAt);
+        };
     }
 }

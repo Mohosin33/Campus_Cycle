@@ -164,12 +164,11 @@ public class RentalService {
             cycleDao.updateStatus(rental.getCycleId(), CycleStatus.AVAILABLE, returnStationId);
         }
 
-        // Award student loyalty points
+        // Award rider loyalty points
         Optional<User> userOpt = userDao.findById(rental.getUserId());
-        if (userOpt.isPresent() && userOpt.get() instanceof Student) {
-            Student student = (Student) userOpt.get();
-            student.setLoyaltyPoints(student.getLoyaltyPoints() + 10);
-            userDao.update(student);
+        if (userOpt.isPresent() && userOpt.get() instanceof Rider rider) {
+            rider.setLoyaltyPoints(rider.getLoyaltyPoints() + 10);
+            userDao.update(rider);
         }
 
         LOGGER.info(String.format("Rental #%d closed. Actual ride: %d min. Overtime fine: $%.2f",

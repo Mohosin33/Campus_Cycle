@@ -57,21 +57,24 @@ public class VerificationTest {
 
             // ── 2. Advanced OOP ──────────────────────────────────────
             System.out.println("\n[2/8] Advanced OOP — Polymorphism & Strategy Pattern…");
-            Optional<User> studentOpt = userDao.findByUsername("student");
-            Optional<User> staffOpt   = userDao.findByUsername("dr_smith");
+            Optional<User> riderOpt = userDao.findByUsername("rider1");
+            Optional<User> ownerOpt = userDao.findByUsername("owner1");
 
-            if (studentOpt.isPresent() && studentOpt.get() instanceof Student s) {
-                System.out.println("  ✓ instanceof Student: " + s.getFullName());
-                System.out.println("  ✓ Pricing strategy : " + s.getPricingStrategy().getStrategyName());
-                System.out.println("  ✓ Wallet balance   : $" + String.format("%.2f", s.getWalletBalance()));
-                System.out.println("  ✓ Account active   : " + s.isActive());
+            if (riderOpt.isPresent() && riderOpt.get() instanceof Rider r) {
+                System.out.println("  ✓ instanceof Rider: " + r.getFullName());
+                System.out.println("  ✓ Pricing strategy: " + r.getPricingStrategy().getStrategyName());
+                System.out.println("  ✓ Wallet balance  : $" + String.format("%.2f", r.getWalletBalance()));
+                System.out.println("  ✓ Account active  : " + r.isActive());
             } else {
-                System.err.println("  ✗ Student polymorphism failed!"); allPassed = false;
+                System.err.println("  ✗ Rider polymorphism failed!"); allPassed = false;
             }
 
-            if (staffOpt.isPresent() && staffOpt.get() instanceof Staff st) {
-                System.out.println("  ✓ instanceof Staff: " + st.getFullName());
-                System.out.println("  ✓ Pricing strategy: " + st.getPricingStrategy().getStrategyName());
+            if (ownerOpt.isPresent() && ownerOpt.get() instanceof Owner ow) {
+                System.out.println("  ✓ instanceof Owner: " + ow.getFullName());
+                System.out.println("  ✓ Can manage cycles: " + ow.canManageCycles());
+                System.out.println("  ✓ Can rent cycles  : " + ow.canRentCycles());
+            } else {
+                System.err.println("  ✗ Owner polymorphism failed!"); allPassed = false;
             }
 
             // ── 3. CRUD ───────────────────────────────────────────────
@@ -141,7 +144,7 @@ public class VerificationTest {
             Optional<User> adminOpt = userDao.findByUsername("admin");
             if (adminOpt.isPresent()) {
                 User admin = adminOpt.get();
-                boolean adminOk = PasswordHasher.verifyPassword("Admin@123456", admin.getPasswordHash(), admin.getPasswordSalt());
+                boolean adminOk = PasswordHasher.verifyPassword("admin123", admin.getPasswordHash(), admin.getPasswordSalt());
                 System.out.println("  ✓ Seeded admin password verifies correctly: " + adminOk);
                 if (!adminOk) allPassed = false;
             }
@@ -149,8 +152,8 @@ public class VerificationTest {
             // ── 7. [PROD] Wallet Operations ───────────────────────────
             System.out.println("\n[7/8] Campus Pay Wallet — Top-Up & Deduction…");
             WalletService walletService = new WalletService();
-            if (studentOpt.isPresent()) {
-                int uid = studentOpt.get().getId();
+            if (riderOpt.isPresent()) {
+                int uid = riderOpt.get().getId();
                 double before = walletService.getBalance(uid);
                 System.out.println("  → Balance before top-up: $" + String.format("%.2f", before));
 
@@ -171,7 +174,7 @@ public class VerificationTest {
                 double final_ = walletService.getBalance(uid);
                 System.out.println("  → Final balance : $" + String.format("%.2f", final_));
             } else {
-                System.err.println("  ✗ Could not find 'student' user for wallet test!"); allPassed = false;
+                System.err.println("  ✗ Could not find 'rider1' user for wallet test!"); allPassed = false;
             }
 
             // ── 8. [PROD] Maintenance Ticket Lifecycle ─────────────────

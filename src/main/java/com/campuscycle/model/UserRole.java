@@ -1,11 +1,14 @@
 package com.campuscycle.model;
 
 /**
- * Enumeration representing user roles within CampusCycle.
+ * Enumeration representing the three user roles in CampusCycle.
+ * ADMIN   - Platform administrator
+ * OWNER   - Cycle owner who lists cycles for rent
+ * RIDER   - User who rents and rides cycles
  */
 public enum UserRole {
-    STUDENT("Student"),
-    STAFF("Staff / Faculty"),
+    RIDER("Rider"),
+    OWNER("Cycle Owner"),
     ADMIN("Administrator");
 
     private final String displayName;
