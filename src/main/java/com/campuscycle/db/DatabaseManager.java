@@ -2,7 +2,6 @@ package com.campuscycle.db;
 
 import com.campuscycle.security.PasswordHasher;
 
-import java.io.File;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -11,8 +10,9 @@ import java.util.logging.Logger;
 
 /**
  * Enterprise Database Manager for SQLite.
+ * Dockless campus cycle marketplace architecture.
  * Three-role schema: ADMIN, OWNER, RIDER.
- * Cycles are linked to Owners via owner_id FK.
+ * Cycles feature free-floating campus locations without fixed dock stations.
  */
 public class DatabaseManager {
     private static final Logger LOGGER = Logger.getLogger(DatabaseManager.class.getName());
@@ -37,7 +37,7 @@ public class DatabaseManager {
 
     private void initDatabase() {
         try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
-            LOGGER.info("Initializing CampusCycle database schema (RIDER/OWNER/ADMIN model)…");
+            LOGGER.info("Initializing CampusCycle dockless database schema…");
 
             // ── Users ────────────────────────────────────────────────
             stmt.execute("""
@@ -59,17 +59,7 @@ public class DatabaseManager {
                 );
             """);
 
-            // ── Stations ─────────────────────────────────────────────
-            stmt.execute("""
-                CREATE TABLE IF NOT EXISTS stations (
-                    id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name     TEXT NOT NULL,
-                    location TEXT NOT NULL,
-                    capacity INTEGER NOT NULL DEFAULT 15
-                );
-            """);
-
-            // ── Cycles (owner_id FK → users) ─────────────────────────
+            // ── Cycles (Dockless: location string, owner_id FK) ──────
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS cycles (
                     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,17 +68,16 @@ public class DatabaseManager {
                     type               TEXT NOT NULL,
                     hourly_rate        REAL NOT NULL,
                     status             TEXT NOT NULL,
-                    station_id         INTEGER,
+                    location           TEXT NOT NULL DEFAULT 'Campus Central Plaza',
                     battery_percentage INTEGER DEFAULT -1,
                     total_rides        INTEGER DEFAULT 0,
                     last_maintained    TEXT,
                     owner_id           INTEGER,
-                    FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE SET NULL,
-                    FOREIGN KEY (owner_id)   REFERENCES users(id)    ON DELETE SET NULL
+                    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL
                 );
             """);
 
-            // ── Rentals ──────────────────────────────────────────────
+            // ── Rentals (Dockless: pickup_location and return_location) 
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS rentals (
                     id                      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,13 +90,11 @@ public class DatabaseManager {
                     overdue_fine            REAL    DEFAULT 0.0,
                     actual_duration_minutes INTEGER DEFAULT 0,
                     status                  TEXT    NOT NULL,
-                    start_station_id        INTEGER,
-                    end_station_id          INTEGER,
+                    pickup_location         TEXT    DEFAULT 'Campus Central Plaza',
+                    return_location         TEXT,
                     notes                   TEXT,
-                    FOREIGN KEY (user_id)          REFERENCES users(id)    ON DELETE CASCADE,
-                    FOREIGN KEY (cycle_id)          REFERENCES cycles(id)   ON DELETE CASCADE,
-                    FOREIGN KEY (start_station_id)  REFERENCES stations(id),
-                    FOREIGN KEY (end_station_id)    REFERENCES stations(id)
+                    FOREIGN KEY (user_id)   REFERENCES users(id)  ON DELETE CASCADE,
+                    FOREIGN KEY (cycle_id)  REFERENCES cycles(id) ON DELETE CASCADE
                 );
             """);
 
@@ -158,7 +145,7 @@ public class DatabaseManager {
                 );
             """);
 
-            LOGGER.info("Schema initialized successfully.");
+            LOGGER.info("Dockless database schema initialized successfully.");
             seedInitialData(conn);
 
         } catch (SQLException e) {
@@ -172,7 +159,7 @@ public class DatabaseManager {
             if (rs.next() && rs.getInt(1) > 0) return; // Already seeded
         }
 
-        LOGGER.info("Seeding initial data with RIDER/OWNER/ADMIN roles…");
+        LOGGER.info("Seeding initial data for dockless campus cycle system…");
         String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
         // ── Seed Users ───────────────────────────────────────────────
@@ -181,36 +168,34 @@ public class DatabaseManager {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """;
 
-        // Track generated user IDs for cycle ownership
         int adminId = 0, owner1Id = 0, owner2Id = 0, rider1Id = 0, rider2Id = 0;
 
         try (PreparedStatement ps = conn.prepareStatement(userSql, Statement.RETURN_GENERATED_KEYS)) {
-
             // 1. Admin
             String salt = PasswordHasher.generateSalt();
             setUserParams(ps, "admin", PasswordHasher.hashPassword("admin123", salt), salt,
                 "Campus Transport Admin", "admin@campuscycle.edu", "+8801700000001",
-                "ADMIN", "ADM-001", "Campus Facilities", 0, 500.0, 1, now);
+                "ADMIN", "ADM-001", "Campus Logistics", 0, 500.0, 1, now);
             ps.executeUpdate();
             try (ResultSet k = ps.getGeneratedKeys()) { if (k.next()) adminId = k.getInt(1); }
 
-            // 2. Owner 1 — Rahman Cycles
+            // 2. Owner 1 (Karim Rahman)
             salt = PasswordHasher.generateSalt();
             setUserParams(ps, "owner1", PasswordHasher.hashPassword("owner123", salt), salt,
                 "Karim Rahman", "karim@rahmanrentals.com", "+8801700000002",
-                "OWNER", "OWN-001", "North Campus", 0, 200.0, 1, now);
+                "OWNER", "OWN-001", "North Campus Zone", 0, 200.0, 1, now);
             ps.executeUpdate();
             try (ResultSet k = ps.getGeneratedKeys()) { if (k.next()) owner1Id = k.getInt(1); }
 
-            // 3. Owner 2 — Green Wheels
+            // 3. Owner 2 (Sadia Islam)
             salt = PasswordHasher.generateSalt();
             setUserParams(ps, "owner2", PasswordHasher.hashPassword("owner123", salt), salt,
                 "Sadia Islam", "sadia@greenwheels.com", "+8801700000003",
-                "OWNER", "OWN-002", "South Campus", 0, 150.0, 1, now);
+                "OWNER", "OWN-002", "South Campus Zone", 0, 150.0, 1, now);
             ps.executeUpdate();
             try (ResultSet k = ps.getGeneratedKeys()) { if (k.next()) owner2Id = k.getInt(1); }
 
-            // 4. Rider 1 — Mohosin
+            // 4. Rider 1 (Mohosin Khan)
             salt = PasswordHasher.generateSalt();
             setUserParams(ps, "rider1", PasswordHasher.hashPassword("rider123", salt), salt,
                 "Mohosin Khan", "mohosin@student.edu", "+8801700000004",
@@ -218,7 +203,7 @@ public class DatabaseManager {
             ps.executeUpdate();
             try (ResultSet k = ps.getGeneratedKeys()) { if (k.next()) rider1Id = k.getInt(1); }
 
-            // 5. Rider 2 — Sara
+            // 5. Rider 2 (Sara Ahmed)
             salt = PasswordHasher.generateSalt();
             setUserParams(ps, "rider2", PasswordHasher.hashPassword("rider123", salt), salt,
                 "Sara Ahmed", "sara@student.edu", "+8801700000005",
@@ -227,38 +212,21 @@ public class DatabaseManager {
             try (ResultSet k = ps.getGeneratedKeys()) { if (k.next()) rider2Id = k.getInt(1); }
         }
 
-        // ── Seed Stations ────────────────────────────────────────────
-        String stSql = "INSERT INTO stations (name, location, capacity) VALUES (?, ?, ?);";
-        try (PreparedStatement ps = conn.prepareStatement(stSql)) {
-            Object[][] stations = {
-                {"Central Library Dock",     "Building A, East Entrance",    15},
-                {"Science & Engineering Hub","Academic Zone Block 4",         15},
-                {"Student Dormitories Hub",  "North Campus Residential",      20},
-                {"Main Campus Gateway",      "University Avenue South Gate",  12},
-            };
-            for (Object[] s : stations) {
-                ps.setString(1, (String) s[0]);
-                ps.setString(2, (String) s[1]);
-                ps.setInt(3, (int) s[2]);
-                ps.executeUpdate();
-            }
-        }
-
-        // ── Seed Cycles (linked to owners) ───────────────────────────
-        String cyc = "INSERT INTO cycles (model, brand, type, hourly_rate, status, station_id, battery_percentage, total_rides, last_maintained, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+        // ── Seed Cycles with Campus Locations ─────────────────────────
+        String cyc = "INSERT INTO cycles (model, brand, type, hourly_rate, status, location, battery_percentage, total_rides, last_maintained, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
         try (PreparedStatement ps = conn.prepareStatement(cyc)) {
             // Owner 1 cycles
-            insertCycle(ps, "Campus Glide 100",    "Trek",      "STANDARD", 15.0, "AVAILABLE", 1, -1, 14, "2026-09-10", owner1Id);
-            insertCycle(ps, "City Commuter X",     "Giant",     "STANDARD", 15.0, "AVAILABLE", 1, -1,  8, "2026-09-12", owner1Id);
-            insertCycle(ps, "Veloce Outlaw 7S",    "Veloce",    "GEARED",   22.0, "AVAILABLE", 2, -1, 26, "2026-09-15", owner1Id);
-            insertCycle(ps, "VoltCampus E-1",      "RadPower",  "ELECTRIC", 35.0, "AVAILABLE", 3, 94, 32, "2026-09-20", owner1Id);
-            insertCycle(ps, "VoltCampus E-2",      "RadPower",  "ELECTRIC", 35.0, "AVAILABLE", 3, 82, 28, "2026-09-22", owner1Id);
+            insertCycle(ps, "Campus Glide 100",    "Trek",      "STANDARD", 15.0, "AVAILABLE", "Central Library", -1, 14, "2026-09-10", owner1Id);
+            insertCycle(ps, "City Commuter X",     "Giant",     "STANDARD", 15.0, "AVAILABLE", "Science Complex", -1,  8, "2026-09-12", owner1Id);
+            insertCycle(ps, "Veloce Outlaw 7S",    "Veloce",    "GEARED",   22.0, "AVAILABLE", "Engineering Block 4", -1, 26, "2026-09-15", owner1Id);
+            insertCycle(ps, "VoltCampus E-1",      "RadPower",  "ELECTRIC", 35.0, "AVAILABLE", "Student Dormitories", 94, 32, "2026-09-20", owner1Id);
+            insertCycle(ps, "VoltCampus E-2",      "RadPower",  "ELECTRIC", 35.0, "AVAILABLE", "Main Campus Gateway", 82, 28, "2026-09-22", owner1Id);
             // Owner 2 cycles
-            insertCycle(ps, "Urban Swift 21S",     "Decathlon", "GEARED",   22.0, "AVAILABLE", 2, -1, 19, "2026-09-18", owner2Id);
-            insertCycle(ps, "TrailBlazer Pro",     "Cannondale","MOUNTAIN",  25.0, "AVAILABLE", 4, -1, 11, "2026-09-14", owner2Id);
-            insertCycle(ps, "RockRider 520",       "B'Twin",    "MOUNTAIN",  25.0, "MAINTENANCE",4,-1, 40, "2026-09-02", owner2Id);
-            insertCycle(ps, "Campus Eco Cruiser",  "Hero",      "STANDARD", 15.0, "AVAILABLE", 2, -1,  6, "2026-09-21", owner2Id);
-            insertCycle(ps, "VoltGlide Ultra",     "Specialized","ELECTRIC", 38.0, "AVAILABLE", 1, 98, 15, "2026-09-24", owner2Id);
+            insertCycle(ps, "Urban Swift 21S",     "Decathlon", "GEARED",   22.0, "AVAILABLE", "Cafeteria Plaza", -1, 19, "2026-09-18", owner2Id);
+            insertCycle(ps, "TrailBlazer Pro",     "Cannondale","MOUNTAIN",  25.0, "AVAILABLE", "Sports Pavilion", -1, 11, "2026-09-14", owner2Id);
+            insertCycle(ps, "RockRider 520",       "B'Twin",    "MOUNTAIN",  25.0, "MAINTENANCE","Repair Workshop",-1, 40, "2026-09-02", owner2Id);
+            insertCycle(ps, "Campus Eco Cruiser",  "Hero",      "STANDARD", 15.0, "AVAILABLE", "Administrative Building", -1, 6, "2026-09-21", owner2Id);
+            insertCycle(ps, "VoltGlide Ultra",     "Specialized","ELECTRIC", 38.0, "AVAILABLE", "Central Library", 98, 15, "2026-09-24", owner2Id);
         }
 
         // ── Seed Wallet Opening Deposits ─────────────────────────────
@@ -282,10 +250,9 @@ public class DatabaseManager {
             ps.executeUpdate();
         }
 
-        LOGGER.info("Seeding completed. Users: admin / owner1 / owner2 / rider1 / rider2  (passwords: admin123 / owner123 / rider123)");
+        LOGGER.info("Seeding completed for dockless campus cycle system.");
     }
 
-    // ── Helper methods ────────────────────────────────────────────────
     private void setUserParams(PreparedStatement ps, String username, String hash, String salt,
                                String name, String email, String phone, String role,
                                String specificId, String dept, int points, double wallet,
@@ -298,10 +265,10 @@ public class DatabaseManager {
     }
 
     private void insertCycle(PreparedStatement ps, String model, String brand, String type,
-                             double rate, String status, int stationId, int battery,
+                             double rate, String status, String location, int battery,
                              int rides, String maint, int ownerId) throws SQLException {
         ps.setString(1, model); ps.setString(2, brand); ps.setString(3, type);
-        ps.setDouble(4, rate);  ps.setString(5, status); ps.setInt(6, stationId);
+        ps.setDouble(4, rate);  ps.setString(5, status); ps.setString(6, location);
         ps.setInt(7, battery);  ps.setInt(8, rides);     ps.setString(9, maint);
         ps.setInt(10, ownerId);
         ps.executeUpdate();

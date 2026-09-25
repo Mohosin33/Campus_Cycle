@@ -12,8 +12,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Data Access Object for Rental transactions.
- * Features relational joins across Users, Cycles, and Stations.
+ * Data Access Object for Rental transactions in a dockless campus cycle system.
  */
 public class RentalDao implements GenericDao<Rental, Integer> {
     private static final Logger LOGGER = Logger.getLogger(RentalDao.class.getName());
@@ -26,7 +25,7 @@ public class RentalDao implements GenericDao<Rental, Integer> {
     @Override
     public Rental save(Rental rental) {
         String sql = """
-            INSERT INTO rentals (user_id, cycle_id, start_time, end_time, duration_hours, total_cost, status, start_station_id, end_station_id, notes)
+            INSERT INTO rentals (user_id, cycle_id, start_time, end_time, duration_hours, total_cost, status, pickup_location, return_location, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """;
         try (Connection conn = dbManager.getConnection();
@@ -35,18 +34,14 @@ public class RentalDao implements GenericDao<Rental, Integer> {
             pstmt.setInt(1, rental.getUserId());
             pstmt.setInt(2, rental.getCycleId());
             pstmt.setString(3, rental.getStartTime());
-            // end_time is NULL for an active rental
             if (rental.getEndTime() != null) pstmt.setString(4, rental.getEndTime());
             else pstmt.setNull(4, Types.VARCHAR);
             pstmt.setInt(5, rental.getDurationHours());
             pstmt.setDouble(6, rental.getTotalCost());
             pstmt.setString(7, rental.getStatus().name());
-            // start_station_id: use NULL if 0 (no valid station)
-            if (rental.getStartStationId() > 0) pstmt.setInt(8, rental.getStartStationId());
-            else pstmt.setNull(8, Types.INTEGER);
-            // end_station_id: always NULL for a new/active rental
-            if (rental.getEndStationId() > 0) pstmt.setInt(9, rental.getEndStationId());
-            else pstmt.setNull(9, Types.INTEGER);
+            pstmt.setString(8, rental.getPickupLocation());
+            if (rental.getReturnLocation() != null) pstmt.setString(9, rental.getReturnLocation());
+            else pstmt.setNull(9, Types.VARCHAR);
             pstmt.setString(10, rental.getNotes());
 
             int affected = pstmt.executeUpdate();
@@ -160,7 +155,7 @@ public class RentalDao implements GenericDao<Rental, Integer> {
     public boolean update(Rental rental) {
         String sql = """
             UPDATE rentals
-            SET end_time = ?, duration_hours = ?, total_cost = ?, status = ?, end_station_id = ?, notes = ?
+            SET end_time = ?, duration_hours = ?, total_cost = ?, status = ?, return_location = ?, notes = ?
             WHERE id = ?;
         """;
         try (Connection conn = dbManager.getConnection();
@@ -170,8 +165,7 @@ public class RentalDao implements GenericDao<Rental, Integer> {
             pstmt.setInt(2, rental.getDurationHours());
             pstmt.setDouble(3, rental.getTotalCost());
             pstmt.setString(4, rental.getStatus().name());
-            if (rental.getEndStationId() > 0) pstmt.setInt(5, rental.getEndStationId());
-            else pstmt.setNull(5, Types.INTEGER);
+            pstmt.setString(5, rental.getReturnLocation());
             pstmt.setString(6, rental.getNotes());
             pstmt.setInt(7, rental.getId());
 
@@ -207,8 +201,8 @@ public class RentalDao implements GenericDao<Rental, Integer> {
             rs.getInt("duration_hours"),
             rs.getDouble("total_cost"),
             RentalStatus.valueOf(rs.getString("status")),
-            rs.getInt("start_station_id"),
-            rs.getInt("end_station_id"),
+            rs.getString("pickup_location"),
+            rs.getString("return_location"),
             rs.getString("notes")
         );
     }

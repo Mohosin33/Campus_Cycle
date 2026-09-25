@@ -1,7 +1,6 @@
 package com.campuscycle.ui.view;
 
 import com.campuscycle.dao.CycleDao;
-import com.campuscycle.dao.StationDao;
 import com.campuscycle.model.*;
 import com.campuscycle.service.AuthService;
 import com.campuscycle.service.RentalService;
@@ -36,7 +35,6 @@ public class StudentDashboardView {
     private final RentalService rentalService;
     private final WalletService walletService;
     private final CycleDao cycleDao;
-    private final StationDao stationDao;
 
     private final StackPane rootStack;
     private final BorderPane mainLayout;
@@ -55,7 +53,7 @@ public class StudentDashboardView {
     private Label activeTimeLabel;
     private Label activeDurationTimerLabel;
     private Label activeCostLabel;
-    private ComboBox<Station> returnStationCombo;
+    private TextField returnLocationField;
     private Button returnBtn;
 
     // Return Damage Reporting Checkbox & Subform
@@ -66,7 +64,7 @@ public class StudentDashboardView {
 
     // Filters
     private ComboBox<String> typeFilterCombo;
-    private ComboBox<String> stationFilterCombo;
+    private ComboBox<String> locationFilterCombo;
     private TextField searchField;
 
     // Timer for active ride elapsed time
@@ -77,7 +75,6 @@ public class StudentDashboardView {
         this.rentalService = new RentalService();
         this.walletService = new WalletService();
         this.cycleDao = new CycleDao();
-        this.stationDao = new StationDao();
 
         this.rootStack = new StackPane();
         this.mainLayout = new BorderPane();
@@ -182,13 +179,12 @@ public class StudentDashboardView {
         typeFilterCombo.setValue("All Types");
         typeFilterCombo.setOnAction(e -> applyCycleFilter());
 
-        Label dockLbl = new Label("Dock:");
-        dockLbl.setStyle("-fx-font-weight: 600; -fx-text-fill: #475569;");
-        stationFilterCombo = new ComboBox<>();
-        stationFilterCombo.getItems().add("All Stations");
-        stationDao.findAll().forEach(s -> stationFilterCombo.getItems().add(s.getName()));
-        stationFilterCombo.setValue("All Stations");
-        stationFilterCombo.setOnAction(e -> applyCycleFilter());
+        Label locLbl = new Label("Location:");
+        locLbl.setStyle("-fx-font-weight: 600; -fx-text-fill: #475569;");
+        locationFilterCombo = new ComboBox<>();
+        locationFilterCombo.getItems().add("All Locations");
+        locationFilterCombo.setValue("All Locations");
+        locationFilterCombo.setOnAction(e -> applyCycleFilter());
 
         searchField = new TextField();
         searchField.setPromptText("Search model or brand...");
@@ -206,7 +202,7 @@ public class StudentDashboardView {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        filterBar.getChildren().addAll(typeLbl, typeFilterCombo, dockLbl, stationFilterCombo, searchField, refreshBtn, spacer, tierBadge);
+        filterBar.getChildren().addAll(typeLbl, typeFilterCombo, locLbl, locationFilterCombo, searchField, refreshBtn, spacer, tierBadge);
         content.setTop(filterBar);
 
         // Grid of Cycle Cards using FlowPane
@@ -254,17 +250,17 @@ public class StudentDashboardView {
         activeCostLabel = new Label();
         activeCostLabel.setStyle("-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #2563eb;");
 
-        // Dock Station Return Selector
+        // Dockless Return Location Selector
         HBox returnBox = new HBox(12);
         returnBox.setAlignment(Pos.CENTER);
-        Label dockLabel = new Label("Lock at Return Dock:");
-        dockLabel.setStyle("-fx-font-weight: 600;");
+        Label locLabel = new Label("Return Location:");
+        locLabel.setStyle("-fx-font-weight: 600;");
 
-        returnStationCombo = new ComboBox<>();
-        returnStationCombo.setPromptText("Choose docking station...");
-        returnStationCombo.setPrefWidth(240);
+        returnLocationField = new TextField();
+        returnLocationField.setPromptText("Where did you park? (e.g. Library front rack, Engineering Plaza)");
+        returnLocationField.setPrefWidth(280);
 
-        returnBox.getChildren().addAll(dockLabel, returnStationCombo);
+        returnBox.getChildren().addAll(locLabel, returnLocationField);
 
         TextField notesField = new TextField();
         notesField.setPromptText("Optional return notes");
@@ -294,7 +290,7 @@ public class StudentDashboardView {
             damageReportBox.setManaged(newV);
         });
 
-        returnBtn = new Button("🔒 Dock & Complete Return");
+        returnBtn = new Button("🔒 Lock & Complete Return");
         returnBtn.getStyleClass().add("btn-success");
         returnBtn.setPrefHeight(40);
         returnBtn.setMaxWidth(300);
@@ -307,10 +303,9 @@ public class StudentDashboardView {
                 return;
             }
 
-            Station targetStation = returnStationCombo.getValue();
-            if (targetStation == null) {
-                showAlert(Alert.AlertType.WARNING, "Dock Station Required", "Please select the docking station where you have locked the cycle.");
-                return;
+            String returnLoc = returnLocationField.getText().trim();
+            if (returnLoc.isEmpty()) {
+                returnLoc = "Campus Core";
             }
 
             boolean reportDamage = reportDamageCheck.isSelected();
@@ -318,7 +313,7 @@ public class StudentDashboardView {
             String details = reportDamage ? damageDetailsField.getText() : null;
 
             RentalService.ReturnReceipt receipt = rentalService.returnCycle(
-                activeOpt.get(), targetStation.getId(), notesField.getText(), reportDamage, cat, details
+                activeOpt.get(), returnLoc, notesField.getText(), reportDamage, cat, details
             );
 
             if (receipt != null) {
@@ -332,11 +327,13 @@ public class StudentDashboardView {
                     msg += "\n🛠️ Maintenance ticket submitted. Technicians notified.";
                 }
 
-                showAlert(Alert.AlertType.INFORMATION, "Cycle Docked Successfully", msg);
+                showAlert(Alert.AlertType.INFORMATION, "Cycle Returned Successfully", msg);
                 reportDamageCheck.setSelected(false);
+                returnLocationField.clear();
+                notesField.clear();
                 refreshAllData();
             } else {
-                showAlert(Alert.AlertType.ERROR, "Return Error", "Could not complete dock transaction.");
+                showAlert(Alert.AlertType.ERROR, "Return Error", "Could not complete return transaction.");
             }
         });
 
@@ -483,10 +480,14 @@ public class StudentDashboardView {
             loyaltyPointsLabel.setVisible(false);
         }
 
-        // Return stations
-        List<Station> stations = stationDao.findAll();
-        returnStationCombo.setItems(FXCollections.observableArrayList(stations));
-        if (!stations.isEmpty()) returnStationCombo.setValue(stations.get(0));
+        // Populate location filter with distinct campus locations
+        if (locationFilterCombo != null) {
+            String currLoc = locationFilterCombo.getValue();
+            locationFilterCombo.getItems().clear();
+            locationFilterCombo.getItems().add("All Locations");
+            cycleDao.findAll().stream().map(Cycle::getLocation).distinct().forEach(loc -> locationFilterCombo.getItems().add(loc));
+            locationFilterCombo.setValue(currLoc != null && locationFilterCombo.getItems().contains(currLoc) ? currLoc : "All Locations");
+        }
 
         // Available cycles
         applyCycleFilter();
@@ -500,7 +501,7 @@ public class StudentDashboardView {
             activeTimeLabel.setText("Started: " + active.getStartTime() + " (" + active.getDurationHours() + " hr booking)");
             activeCostLabel.setText(String.format("Fare Paid: $%.2f", active.getTotalCost()));
             returnBtn.setDisable(false);
-            returnStationCombo.setDisable(false);
+            returnLocationField.setDisable(false);
             reportDamageCheck.setDisable(false);
         } else {
             activeBikeNameLabel.setText("No Active Ride");
@@ -509,7 +510,7 @@ public class StudentDashboardView {
             activeTimeLabel.setText("Browse 'Available Cycles' tab to reserve an eco-friendly campus bike.");
             activeCostLabel.setText("");
             returnBtn.setDisable(true);
-            returnStationCombo.setDisable(true);
+            returnLocationField.setDisable(true);
             reportDamageCheck.setDisable(true);
         }
 
@@ -522,20 +523,20 @@ public class StudentDashboardView {
         User user = authService.getCurrentUser();
         List<Cycle> cycles = cycleDao.findAll();
         String selectedType = typeFilterCombo != null ? typeFilterCombo.getValue() : "All Types";
-        String selectedStation = stationFilterCombo != null ? stationFilterCombo.getValue() : "All Stations";
+        String selectedLoc = locationFilterCombo != null ? locationFilterCombo.getValue() : "All Locations";
         String search = searchField != null && searchField.getText() != null ? searchField.getText().toLowerCase().trim() : "";
 
         cyclesContainer.getChildren().clear();
 
         for (Cycle c : cycles) {
             boolean matchesType = selectedType.equals("All Types") || c.getType().getLabel().equals(selectedType);
-            boolean matchesStation = selectedStation.equals("All Stations") || c.getStationName().equals(selectedStation);
+            boolean matchesLoc = selectedLoc.equals("All Locations") || c.getLocation().equalsIgnoreCase(selectedLoc);
             boolean matchesSearch = search.isEmpty() ||
                 c.getModel().toLowerCase().contains(search) ||
                 c.getBrand().toLowerCase().contains(search) ||
-                c.getStationName().toLowerCase().contains(search);
+                c.getLocation().toLowerCase().contains(search);
 
-            if (matchesType && matchesStation && matchesSearch) {
+            if (matchesType && matchesLoc && matchesSearch) {
                 CycleCard card = new CycleCard(c, user, this::openBookingModal);
                 cyclesContainer.getChildren().add(card);
             }

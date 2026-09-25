@@ -2,7 +2,6 @@ package com.campuscycle.ui.view;
 
 import com.campuscycle.dao.CycleDao;
 import com.campuscycle.dao.RentalDao;
-import com.campuscycle.dao.StationDao;
 import com.campuscycle.model.*;
 import com.campuscycle.service.*;
 import com.campuscycle.ui.NavigationManager;
@@ -30,7 +29,6 @@ public class OwnerDashboardView {
     private final AuthService authService;
     private final CycleDao cycleDao;
     private final RentalDao rentalDao;
-    private final StationDao stationDao;
     private final MaintenanceService maintenanceService;
 
     private final StackPane rootStack;
@@ -50,7 +48,6 @@ public class OwnerDashboardView {
         this.authService        = AuthService.getInstance();
         this.cycleDao           = new CycleDao();
         this.rentalDao          = new RentalDao();
-        this.stationDao         = new StationDao();
         this.maintenanceService = new MaintenanceService();
 
         this.rootStack  = new StackPane();
@@ -187,9 +184,9 @@ public class OwnerDashboardView {
         cStatus.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getStatus().getStatusText()));
         cStatus.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.14));
 
-        TableColumn<Cycle, String> cStation = new TableColumn<>("Dock Station");
-        cStation.setCellValueFactory(new PropertyValueFactory<>("stationName"));
-        cStation.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.18));
+        TableColumn<Cycle, String> cLocation = new TableColumn<>("Location");
+        cLocation.setCellValueFactory(new PropertyValueFactory<>("location"));
+        cLocation.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.18));
 
         TableColumn<Cycle, Integer> cRides = new TableColumn<>("Rides");
         cRides.setCellValueFactory(new PropertyValueFactory<>("totalRides"));
@@ -199,7 +196,7 @@ public class OwnerDashboardView {
         cBat.setCellValueFactory(new PropertyValueFactory<>("batteryPercentage"));
         cBat.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.06));
 
-        cycleTable.getColumns().addAll(cId, cName, cType, cRate, cStatus, cStation, cRides, cBat);
+        cycleTable.getColumns().addAll(cId, cName, cType, cRate, cStatus, cLocation, cRides, cBat);
         cycleTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         pane.setCenter(cycleTable);
         return pane;
@@ -214,12 +211,8 @@ public class OwnerDashboardView {
         ComboBox<CycleType> typeC = new ComboBox<>(FXCollections.observableArrayList(CycleType.values()));
         typeC.setValue(existing != null ? existing.getType() : CycleType.STANDARD);
         TextField rateF = new TextField(existing != null ? String.valueOf(existing.getHourlyRate()) : "15.0");
-        List<Station> stations = stationDao.findAll();
-        ComboBox<Station> stationC = new ComboBox<>(FXCollections.observableArrayList(stations));
-        if (!stations.isEmpty()) {
-            if (existing != null) stations.stream().filter(s -> s.getId() == existing.getStationId()).findFirst().ifPresent(stationC::setValue);
-            else stationC.setValue(stations.get(0));
-        }
+        TextField locF  = new TextField(existing != null ? existing.getLocation() : "Central Library");
+        locF.setPromptText("e.g. Central Library, Dormitories, Cafeteria");
         TextField batF = new TextField(existing != null ? String.valueOf(existing.getBatteryPercentage()) : "-1");
         batF.setPromptText("-1 manual, 0-100 e-bike");
 
@@ -227,7 +220,7 @@ public class OwnerDashboardView {
         grid.add(new Label("Model:"),       0, 1); grid.add(modelF,   1, 1);
         grid.add(new Label("Type:"),        0, 2); grid.add(typeC,    1, 2);
         grid.add(new Label("Rate ($/hr):"), 0, 3); grid.add(rateF,    1, 3);
-        grid.add(new Label("Dock Station:"),0, 4); grid.add(stationC, 1, 4);
+        grid.add(new Label("Location:"),    0, 4); grid.add(locF,     1, 4);
         grid.add(new Label("Battery %:"),   0, 5); grid.add(batF,     1, 5);
 
         Label titleLbl = new Label(existing == null ? "List a New Cycle" : "Edit Cycle #" + existing.getId());
@@ -252,15 +245,15 @@ public class OwnerDashboardView {
                 if (brand.isEmpty() || model.isEmpty()) { warn("Brand and Model are required."); return; }
                 double rate = Double.parseDouble(rateF.getText().trim());
                 int bat     = Integer.parseInt(batF.getText().trim());
-                Station st  = stationC.getValue();
-                int stId    = st != null ? st.getId() : 0;
+                String loc  = locF.getText().trim();
+                if (loc.isEmpty()) loc = "Campus Core";
 
                 if (existing == null) {
-                    Cycle c = new Cycle(0, model, brand, typeC.getValue(), rate, CycleStatus.AVAILABLE, stId, bat, ownerId);
+                    Cycle c = new Cycle(0, model, brand, typeC.getValue(), rate, CycleStatus.AVAILABLE, loc, bat, ownerId);
                     cycleDao.save(c);
                 } else {
                     existing.setModel(model); existing.setBrand(brand); existing.setType(typeC.getValue());
-                    existing.setHourlyRate(rate); existing.setStationId(stId); existing.setBatteryPercentage(bat);
+                    existing.setHourlyRate(rate); existing.setLocation(loc); existing.setBatteryPercentage(bat);
                     cycleDao.update(existing);
                 }
                 rootStack.getChildren().remove(overlay);

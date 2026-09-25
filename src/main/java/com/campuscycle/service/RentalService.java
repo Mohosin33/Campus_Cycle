@@ -83,8 +83,8 @@ public class RentalService {
             durationHours,
             totalCost,
             RentalStatus.ACTIVE,
-            cycle.getStationId(),
-            0,
+            cycle.getLocation(),
+            null,
             notes != null ? notes : "Campus trip"
         );
 
@@ -95,7 +95,7 @@ public class RentalService {
 
         // Mark cycle as RENTED
         cycle.rentOut(user, durationHours);
-        cycleDao.updateStatus(cycle.getId(), CycleStatus.RENTED, cycle.getStationId());
+        cycleDao.updateLocationAndStatus(cycle.getId(), CycleStatus.RENTED, cycle.getLocation());
 
         // Log payment record
         String txnRef = "TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -117,9 +117,9 @@ public class RentalService {
     }
 
     /**
-     * Returns an active rental to a dock station with overtime detection and damage ticketing.
+     * Returns an active rental with dockless return location, overtime detection, and damage ticketing.
      */
-    public ReturnReceipt returnCycle(Rental rental, int returnStationId, String returnNotes,
+    public ReturnReceipt returnCycle(Rental rental, String returnLocation, String returnNotes,
                                      boolean reportDamage, MaintenanceTicket.IssueCategory damageCategory, String damageDetails) {
         if (rental == null || !rental.isActive()) {
             return null;
@@ -144,11 +144,14 @@ public class RentalService {
                 "Overtime fine (" + extraMinutes + " min overdue on rental #" + rental.getId() + ")");
         }
 
+        String finalLocation = (returnLocation != null && !returnLocation.trim().isEmpty())
+            ? returnLocation.trim() : "Campus Core";
+
         rental.setEndTime(returnTime);
         rental.setStatus(RentalStatus.COMPLETED);
-        rental.setEndStationId(returnStationId);
+        rental.setReturnLocation(finalLocation);
         rental.setTotalCost(rental.getTotalCost() + overdueFine);
-        rental.setNotes((rental.getNotes() != null ? rental.getNotes() + " | " : "") + "Returned: " + returnNotes);
+        rental.setNotes((rental.getNotes() != null ? rental.getNotes() + " | " : "") + "Returned at " + finalLocation + (returnNotes != null && !returnNotes.isEmpty() ? ": " + returnNotes : ""));
 
         boolean rentalUpdated = rentalDao.update(rental);
         if (!rentalUpdated) {
@@ -158,10 +161,10 @@ public class RentalService {
         // Damage reporting workflow
         if (reportDamage && damageCategory != null) {
             maintenanceService.reportIssue(rental.getCycleId(), rental.getUserId(), damageCategory, damageDetails);
-            // Cycle remains in MAINTENANCE status as set by maintenanceService
+            cycleDao.updateLocationAndStatus(rental.getCycleId(), CycleStatus.MAINTENANCE, finalLocation);
         } else {
-            // Restore cycle to AVAILABLE at the new station
-            cycleDao.updateStatus(rental.getCycleId(), CycleStatus.AVAILABLE, returnStationId);
+            // Restore cycle to AVAILABLE at the return location
+            cycleDao.updateLocationAndStatus(rental.getCycleId(), CycleStatus.AVAILABLE, finalLocation);
         }
 
         // Award rider loyalty points

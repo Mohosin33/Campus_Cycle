@@ -2,7 +2,6 @@ package com.campuscycle.ui.view;
 
 import com.campuscycle.dao.CycleDao;
 import com.campuscycle.dao.RentalDao;
-import com.campuscycle.dao.StationDao;
 import com.campuscycle.dao.UserDao;
 import com.campuscycle.model.*;
 import com.campuscycle.service.*;
@@ -27,7 +26,7 @@ import java.util.List;
 /**
  * Enterprise Fleet Operations and Administration Console.
  * Provides CRUD for cycles, user governance, maintenance work orders,
- * dock rebalancing, and multi-threaded audit export.
+ * and multi-threaded audit export.
  */
 public class AdminDashboardView {
 
@@ -36,10 +35,8 @@ public class AdminDashboardView {
     private final CycleDao cycleDao;
     private final UserDao userDao;
     private final RentalDao rentalDao;
-    private final StationDao stationDao;
     private final ReportService reportService;
     private final MaintenanceService maintenanceService;
-    private final StationTransferService transferService;
     private final WalletService walletService;
 
     // ---- Root layout ----
@@ -67,10 +64,8 @@ public class AdminDashboardView {
         this.cycleDao           = new CycleDao();
         this.userDao            = new UserDao();
         this.rentalDao          = new RentalDao();
-        this.stationDao         = new StationDao();
         this.reportService      = new ReportService();
         this.maintenanceService = new MaintenanceService();
-        this.transferService    = new StationTransferService();
         this.walletService      = new WalletService();
 
         this.rootStack  = new StackPane();
@@ -136,7 +131,6 @@ public class AdminDashboardView {
             new Tab("👥 User Accounts",      buildUsersTab()),
             new Tab("📋 Rental Ledger",       buildRentalsTab()),
             new Tab("🛠️ Maintenance",        buildMaintenanceTab()),
-            new Tab("⚖️ Dock Rebalancing",   buildRebalancingTab()),
             new Tab("⚡ Audit Export",        buildAuditTab())
         );
 
@@ -182,13 +176,13 @@ public class AdminDashboardView {
         maintBtn.setOnAction(e -> {
             Cycle sel = cycleTable.getSelectionModel().getSelectedItem();
             if (sel == null) { warn("Select a cycle first."); return; }
-            cycleDao.updateStatus(sel.getId(), CycleStatus.MAINTENANCE, sel.getStationId());
+            cycleDao.updateLocationAndStatus(sel.getId(), CycleStatus.MAINTENANCE, sel.getLocation());
             info(sel.getModel() + " flagged for maintenance.");
             refreshAllData();
         });
 
         TextField search = new TextField();
-        search.setPromptText("Search model / brand / type…");
+        search.setPromptText("Search model / brand / location…");
         search.textProperty().addListener((obs, o, n) -> filterCycles(n));
 
         Region spacer = new Region();
@@ -223,8 +217,8 @@ public class AdminDashboardView {
         cStatus.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getStatus().getStatusText()));
         cStatus.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.12));
 
-        TableColumn<Cycle, String> cStation = cycleCol("Dock Station", "stationName");
-        cStation.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.18));
+        TableColumn<Cycle, String> cLoc = cycleCol("Location", "location");
+        cLoc.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.18));
 
         TableColumn<Cycle, Integer> cRides = cycleCol("Rides", "totalRides");
         cRides.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.09));
@@ -232,7 +226,7 @@ public class AdminDashboardView {
         TableColumn<Cycle, Integer> cBat = cycleCol("Bat%", "batteryPercentage");
         cBat.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.09));
 
-        cycleTable.getColumns().addAll(cId, cBrand, cType, cRate, cStatus, cStation, cRides, cBat);
+        cycleTable.getColumns().addAll(cId, cBrand, cType, cRate, cStatus, cLoc, cRides, cBat);
         cycleTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         pane.setCenter(cycleTable);
         return pane;
@@ -255,7 +249,7 @@ public class AdminDashboardView {
             cycleDao.findAll().stream().filter(c ->
                 c.getModel().toLowerCase().contains(lq) ||
                 c.getBrand().toLowerCase().contains(lq) ||
-                c.getStationName().toLowerCase().contains(lq) ||
+                c.getLocation().toLowerCase().contains(lq) ||
                 c.getType().name().toLowerCase().contains(lq)
             ).toList()
         ));
@@ -272,13 +266,8 @@ public class AdminDashboardView {
         TextField rateF   = new TextField(existing != null ? String.valueOf(existing.getHourlyRate()) : "15.0");
         ComboBox<CycleStatus> statC = new ComboBox<>(FXCollections.observableArrayList(CycleStatus.values()));
         statC.setValue(existing != null ? existing.getStatus() : CycleStatus.AVAILABLE);
-        List<Station> stations = stationDao.findAll();
-        ComboBox<Station> stationC = new ComboBox<>(FXCollections.observableArrayList(stations));
-        if (!stations.isEmpty()) {
-            if (existing != null)
-                stations.stream().filter(s -> s.getId() == existing.getStationId()).findFirst().ifPresent(stationC::setValue);
-            else stationC.setValue(stations.get(0));
-        }
+        TextField locF    = new TextField(existing != null ? existing.getLocation() : "Campus Central Plaza");
+        locF.setPromptText("e.g. Central Library, Dormitories, Cafeteria");
         TextField batF = new TextField(existing != null ? String.valueOf(existing.getBatteryPercentage()) : "-1");
         batF.setPromptText("-1 manual, 0-100 e-bike");
 
@@ -287,7 +276,7 @@ public class AdminDashboardView {
         grid.add(new Label("Type:"),        0, 2); grid.add(typeC,    1, 2);
         grid.add(new Label("Rate ($/hr):"), 0, 3); grid.add(rateF,    1, 3);
         grid.add(new Label("Status:"),      0, 4); grid.add(statC,    1, 4);
-        grid.add(new Label("Station:"),     0, 5); grid.add(stationC, 1, 5);
+        grid.add(new Label("Location:"),    0, 5); grid.add(locF,     1, 5);
         grid.add(new Label("Battery %:"),   0, 6); grid.add(batF,     1, 6);
 
         Label titleLbl = new Label(existing == null ? "Add New Cycle" : "Edit Cycle #" + existing.getId());
@@ -316,15 +305,16 @@ public class AdminDashboardView {
                 if (brand.isEmpty() || model.isEmpty()) { warn("Brand and Model are required."); return; }
                 double rate = Double.parseDouble(rateF.getText().trim());
                 int bat     = Integer.parseInt(batF.getText().trim());
-                Station st  = stationC.getValue();
-                int stId    = st != null ? st.getId() : 1;
+                String loc  = locF.getText().trim();
+                if (loc.isEmpty()) loc = "Campus Central Plaza";
+
                 if (existing == null) {
-                    Cycle c = new Cycle(0, model, brand, typeC.getValue(), rate, statC.getValue(), stId, bat);
+                    Cycle c = new Cycle(0, model, brand, typeC.getValue(), rate, statC.getValue(), loc, bat);
                     cycleDao.save(c);
                 } else {
                     existing.setModel(model); existing.setBrand(brand); existing.setType(typeC.getValue());
                     existing.setHourlyRate(rate); existing.setStatus(statC.getValue());
-                    existing.setStationId(stId); existing.setBatteryPercentage(bat);
+                    existing.setLocation(loc); existing.setBatteryPercentage(bat);
                     cycleDao.update(existing);
                 }
                 rootStack.getChildren().remove(overlay);
@@ -584,9 +574,8 @@ public class AdminDashboardView {
     }
 
     private void openResolveModal(MaintenanceTicket ticket) {
-        List<Station> stations = stationDao.findAll();
-        ComboBox<Station> stationC = new ComboBox<>(FXCollections.observableArrayList(stations));
-        if (!stations.isEmpty()) stationC.setValue(stations.get(0));
+        TextField returnLocF = new TextField("Campus Central Plaza");
+        returnLocF.setPromptText("Campus location (e.g. Science Complex rack, Library Entrance)");
 
         TextArea notesA = new TextArea();
         notesA.setPromptText("Technician notes (parts replaced, adjustments)");
@@ -604,7 +593,7 @@ public class AdminDashboardView {
         HBox btnBar = new HBox(10, cancelBtn, resolveBtn); btnBar.setAlignment(Pos.CENTER_RIGHT);
 
         VBox modal = new VBox(10, titleLbl, issueLbl,
-            new Label("Return Dock Station:"), stationC,
+            new Label("Return Location:"), returnLocF,
             new Label("Technician Notes:"), notesA,
             new Label("Repair Cost ($):"), costF, btnBar);
         modal.getStyleClass().add("card");
@@ -617,11 +606,11 @@ public class AdminDashboardView {
         resolveBtn.setOnAction(e -> {
             try {
                 double cost = Double.parseDouble(costF.getText().trim());
-                Station st = stationC.getValue();
-                if (st == null) { warn("Select a return station."); return; }
-                boolean ok = maintenanceService.resolveTicket(ticket.getId(), notesA.getText(), cost, st.getId());
+                String loc = returnLocF.getText().trim();
+                if (loc.isEmpty()) loc = "Campus Central Plaza";
+                boolean ok = maintenanceService.resolveTicket(ticket.getId(), notesA.getText(), cost, loc);
                 rootStack.getChildren().remove(overlay);
-                if (ok) { info("Cycle re-commissioned at " + st.getName() + " dock."); refreshAllData(); }
+                if (ok) { info("Cycle re-commissioned at " + loc + "."); refreshAllData(); }
                 else    warn("Failed to resolve ticket.");
             } catch (NumberFormatException ex) {
                 warn("Enter a valid repair cost.");
@@ -670,58 +659,6 @@ public class AdminDashboardView {
         rootStack.getChildren().add(overlay);
     }
 
-    // ============================================================
-    //  DOCK REBALANCING TAB
-    // ============================================================
-    private Parent buildRebalancingTab() {
-        VBox container = new VBox(16);
-        container.setPadding(new Insets(20));
-
-        Label title = new Label("🔄 Fleet Dock Rebalancing");
-        title.getStyleClass().add("card-title");
-        Label desc = new Label("Relocate AVAILABLE or MAINTENANCE cycles between campus dock stations to optimise fleet distribution.");
-        desc.setStyle("-fx-font-size: 13px; -fx-text-fill: #64748b;");
-        desc.setWrapText(true);
-
-        List<Cycle> movable = cycleDao.findAll().stream()
-            .filter(c -> c.getStatus() != CycleStatus.RENTED).toList();
-        ComboBox<Cycle> cycleC = new ComboBox<>(FXCollections.observableArrayList(movable));
-        if (!movable.isEmpty()) cycleC.setValue(movable.get(0));
-
-        List<Station> stations = stationDao.findAll();
-        ComboBox<Station> stationC = new ComboBox<>(FXCollections.observableArrayList(stations));
-        if (!stations.isEmpty()) stationC.setValue(stations.get(0));
-
-        Label resultLbl = new Label();
-        resultLbl.setStyle("-fx-font-weight: bold;");
-
-        Button transferBtn = new Button("🔄 Execute Dock Transfer");
-        transferBtn.getStyleClass().add("btn-primary");
-        transferBtn.setOnAction(e -> {
-            Cycle sel = cycleC.getValue();
-            Station dst = stationC.getValue();
-            if (sel == null || dst == null) { warn("Select a cycle and destination."); return; }
-            boolean ok = transferService.rebalanceCycle(sel.getId(), dst.getId());
-            if (ok) {
-                resultLbl.setText("✅ " + sel.getDisplayName() + " → " + dst.getName());
-                resultLbl.setStyle("-fx-text-fill: #10b981; -fx-font-weight: bold;");
-                refreshAllData();
-            } else {
-                resultLbl.setText("❌ Transfer failed — cycle may be actively rented.");
-                resultLbl.setStyle("-fx-text-fill: #ef4444; -fx-font-weight: bold;");
-            }
-        });
-
-        VBox card = new VBox(12,
-            new Label("Cycle to Move:"), cycleC,
-            new Label("Destination Station:"), stationC,
-            transferBtn, resultLbl);
-        card.getStyleClass().add("card");
-        card.setMaxWidth(520);
-
-        container.getChildren().addAll(title, desc, card);
-        return container;
-    }
 
     // ============================================================
     //  AUDIT EXPORT TAB (Concurrency Showcase)

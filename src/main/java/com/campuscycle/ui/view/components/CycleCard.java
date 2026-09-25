@@ -62,9 +62,9 @@ public class CycleCard extends VBox {
         Label typeLabel = new Label(typeDesc);
         typeLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #475569;");
 
-        // Station Dock Location
-        Label stationLabel = new Label("📍 " + cycle.getStationName());
-        stationLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #64748b;");
+        // Campus Location
+        Label locationLabel = new Label("📍 " + cycle.getLocation());
+        locationLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #64748b;");
 
         // Price display (showing effective rate with user discount if applicable)
         double baseRate = cycle.getHourlyRate();
@@ -78,9 +78,9 @@ public class CycleCard extends VBox {
             discountNote.setStyle("-fx-font-size: 11px; -fx-text-fill: #94a3b8; -fx-strikethrough: true;");
             HBox priceBox = new HBox(6, priceLabel, discountNote);
             priceBox.setAlignment(Pos.BASELINE_LEFT);
-            getChildren().addAll(header, typeLabel, stationLabel, priceBox);
+            getChildren().addAll(header, typeLabel, locationLabel, priceBox);
         } else {
-            getChildren().addAll(header, typeLabel, stationLabel, priceLabel);
+            getChildren().addAll(header, typeLabel, locationLabel, priceLabel);
         }
 
         // Action Button

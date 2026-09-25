@@ -45,7 +45,7 @@ public class MaintenanceService {
         if (saved != null) {
             // Automatically place cycle in MAINTENANCE status
             if (cycleOpt.isPresent()) {
-                cycleDao.updateStatus(cycleId, CycleStatus.MAINTENANCE, cycleOpt.get().getStationId());
+                cycleDao.updateLocationAndStatus(cycleId, CycleStatus.MAINTENANCE, cycleOpt.get().getLocation());
             }
             LOGGER.info(String.format("Issue reported on cycle #%d [%s]. Marked into MAINTENANCE.", cycleId, category.getLabel()));
         }
@@ -53,9 +53,9 @@ public class MaintenanceService {
     }
 
     /**
-     * Resolves a work order, logs technician repair cost, and puts cycle back to AVAILABLE status.
+     * Resolves a work order with dockless return location.
      */
-    public boolean resolveTicket(int ticketId, String technicianNotes, double repairCost, int returnStationId) {
+    public boolean resolveTicket(int ticketId, String technicianNotes, double repairCost, String returnLocation) {
         Optional<MaintenanceTicket> ticketOpt = ticketDao.findById(ticketId);
         if (ticketOpt.isEmpty()) return false;
 
@@ -69,12 +69,16 @@ public class MaintenanceService {
 
         boolean updated = ticketDao.update(ticket);
         if (updated) {
-            // Restore cycle to AVAILABLE at designated station
-            cycleDao.updateStatus(ticket.getCycleId(), CycleStatus.AVAILABLE, returnStationId);
-            LOGGER.info("Ticket #" + ticketId + " resolved. Cycle #" + ticket.getCycleId() + " restored to station #" + returnStationId);
+            String loc = (returnLocation != null && !returnLocation.trim().isEmpty()) ? returnLocation.trim() : "Campus Core";
+            cycleDao.updateLocationAndStatus(ticket.getCycleId(), CycleStatus.AVAILABLE, loc);
+            LOGGER.info("Ticket #" + ticketId + " resolved. Cycle #" + ticket.getCycleId() + " restored to location: " + loc);
             return true;
         }
         return false;
+    }
+
+    public boolean resolveTicket(int ticketId, String technicianNotes, double repairCost, int ignoredStationId) {
+        return resolveTicket(ticketId, technicianNotes, repairCost, "Campus Core");
     }
 
     public List<MaintenanceTicket> getOpenTickets() {
