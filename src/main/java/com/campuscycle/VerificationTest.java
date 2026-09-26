@@ -79,7 +79,7 @@ public class VerificationTest {
 
             // ── 3. CRUD ───────────────────────────────────────────────
             System.out.println("\n[3/8] Complete CRUD Operations…");
-            Cycle testBike = new Cycle(0, "Speedster Z-9", "Specialized", CycleType.GEARED, 20.0, CycleStatus.AVAILABLE, 1, -1);
+            Cycle testBike = new Cycle(0, "Speedster Z-9", "Specialized", CycleType.GEARED, 20.0, CycleStatus.AVAILABLE, "1", -1);//change to string
             Cycle saved = cycleDao.save(testBike);
             System.out.println("  ✓ CREATE : Cycle inserted with ID=" + saved.getId());
 

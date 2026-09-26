@@ -65,7 +65,7 @@ public class Cycle implements Rentable, Identifiable {
     }
 
     @Override
-    public void returnCycle() {
+    public void returnToStation(int stationId) {//change returnCycle()
         this.status = CycleStatus.AVAILABLE;
     }
 
