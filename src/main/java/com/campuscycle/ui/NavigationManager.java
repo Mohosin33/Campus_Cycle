@@ -53,12 +53,12 @@ public class NavigationManager {
 
     public void showOwnerDashboard() {
         OwnerDashboardView view = new OwnerDashboardView();
-        switchScene(view.getView(), "CampusCycle - Owner Fleet Portal", 1150, 780);
+        switchScene(view.getView(), "CampusCycle - Owner Portal", 1150, 780);
     }
 
     public void showAdminDashboard() {
         AdminDashboardView view = new AdminDashboardView();
-        switchScene(view.getView(), "CampusCycle - Fleet Administration & Ops Console", 1200, 800);
+        switchScene(view.getView(), "CampusCycle - Campus Administration", 1200, 800);
     }
 
     private void switchScene(Parent root, String title, double width, double height) {

@@ -78,7 +78,11 @@ public class Cycle implements Rentable, Identifiable {
     }
 
     public String getDisplayName() {
-        return brand + " " + model + " (" + type.getLabel() + ")";
+        String displayBrand = brand != null ? brand.trim() : "";
+        String displayModel = model != null ? model.trim() : "";
+        if (displayBrand.isEmpty()) return displayModel;
+        if (displayModel.isEmpty()) return displayBrand;
+        return displayBrand + " " + displayModel;
     }
 
     // Getters and Setters

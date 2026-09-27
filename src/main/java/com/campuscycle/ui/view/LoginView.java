@@ -45,21 +45,20 @@ public class LoginView {
         layout.setTop(topBar);
 
         // --- Center Card ---
-        VBox card = new VBox(20);
+        VBox card = new VBox(18);
         card.setAlignment(Pos.CENTER);
-        card.setPadding(new Insets(36, 40, 36, 40));
+        card.setPadding(new Insets(34, 38, 34, 38));
         card.getStyleClass().add("card");
-        card.setStyle("-fx-background-color: #ffffff; -fx-background-radius: 12; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.25), 20, 0, 0, 6);");
+        card.setStyle("-fx-background-color: rgba(255,255,255,0.98); -fx-background-radius: 18; -fx-effect: dropshadow(three-pass-box, rgba(15,23,42,0.22), 22, 0, 0, 10); -fx-border-color: rgba(148,163,184,0.4); -fx-border-width: 1; -fx-border-radius: 18;");
 
-        // Layout Responsiveness
         card.maxWidthProperty().bind(root.widthProperty().multiply(0.38));
-        card.minWidthProperty().set(370);
+        card.minWidthProperty().set(380);
 
-        Label welcomeTitle = new Label("Welcome to CampusCycle");
-        welcomeTitle.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #0f172a;");
+        Label welcomeTitle = new Label("Welcome to Campus Cycle");
+        welcomeTitle.setStyle("-fx-font-size: 26px; -fx-font-weight: 800; -fx-text-fill: #0f172a;");
 
-        Label welcomeSub = new Label("Sign in with your university credentials to rent cycles");
-        welcomeSub.setStyle("-fx-font-size: 13px; -fx-text-fill: #64748b;");
+        Label welcomeSub = new Label("Sign in to rent, return, and manage your campus rides");
+        welcomeSub.setStyle("-fx-font-size: 13px; -fx-text-fill: #64748b; -fx-padding: 0 0 8 0;");
 
         // Form using GridPane
         GridPane formGrid = new GridPane();
@@ -128,30 +127,14 @@ public class LoginView {
         passField.setOnAction(e -> loginBtn.fire());
         userField.setOnAction(e -> passField.requestFocus());
 
-        Button registerBtn = new Button("New Rider? Create Campus Account");
+        Button registerBtn = new Button("New in the Campus Cycle? Create an account");
         registerBtn.getStyleClass().add("btn-secondary");
         registerBtn.setPrefHeight(38);
         registerBtn.setMaxWidth(Double.MAX_VALUE);
         registerBtn.setOnAction(e -> NavigationManager.getInstance().showRegisterView());
 
-        // Campus Security Badge
-        Label securityBadge = new Label("🔒 256-Bit SHA Encrypted Authentication & Secure Docking");
+        Label securityBadge = new Label("🔒 Secure campus access with verified rider and owner accounts");
         securityBadge.setStyle("-fx-font-size: 11px; -fx-text-fill: #94a3b8;");
-
-        // Demo credentials hint
-        VBox hintBox = new VBox(4);
-        hintBox.setStyle("-fx-background-color: #f0fdf4; -fx-border-color: #86efac; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 10;");
-        Label hintTitle = new Label("📋 Demo Credentials");
-        hintTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: #166534;");
-        Label hintAdmin  = new Label("Admin  →  admin / admin123");
-        Label hintOwner1 = new Label("Owner  →  owner1 / owner123   (Karim Rahman — 5 cycles)");
-        Label hintOwner2 = new Label("Owner  →  owner2 / owner123   (Sadia Islam — 5 cycles)");
-        Label hintRider1 = new Label("Rider  →  rider1 / rider123   (Mohosin Khan)");
-        Label hintRider2 = new Label("Rider  →  rider2 / rider123   (Sara Ahmed)");
-        for (Label l : new Label[]{hintAdmin, hintOwner1, hintOwner2, hintRider1, hintRider2}) {
-            l.setStyle("-fx-font-size: 11px; -fx-text-fill: #15803d; -fx-font-family: monospace;");
-        }
-        hintBox.getChildren().addAll(hintTitle, hintAdmin, hintOwner1, hintOwner2, hintRider1, hintRider2);
 
         card.getChildren().addAll(
             welcomeTitle,
@@ -161,7 +144,6 @@ public class LoginView {
             loginBtn,
             registerBtn,
             new Separator(),
-            hintBox,
             securityBadge
         );
 

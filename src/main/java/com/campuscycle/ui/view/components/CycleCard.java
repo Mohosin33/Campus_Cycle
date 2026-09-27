@@ -2,7 +2,6 @@ package com.campuscycle.ui.view.components;
 
 import com.campuscycle.model.Cycle;
 import com.campuscycle.model.CycleStatus;
-import com.campuscycle.model.CycleType;
 import com.campuscycle.model.User;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -31,8 +30,8 @@ public class CycleCard extends VBox {
         setPrefWidth(260);
         setMinWidth(240);
 
-        // Header: Brand & Model + Status Badge
-        Label titleLabel = new Label(cycle.getBrand() + " " + cycle.getModel());
+        // Header: Display Name + Status Badge
+        Label titleLabel = new Label(cycle.getDisplayName());
         titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #0f172a;");
         titleLabel.setWrapText(true);
 
@@ -54,11 +53,8 @@ public class CycleCard extends VBox {
         HBox.setHgrow(titleLabel, Priority.ALWAYS);
         header.getChildren().add(statusBadge);
 
-        // Type & Battery Info
+        // Cycle type
         String typeDesc = "🚲 " + cycle.getType().getLabel();
-        if (cycle.getType() == CycleType.ELECTRIC && cycle.getBatteryPercentage() >= 0) {
-            typeDesc += " (⚡ " + cycle.getBatteryPercentage() + "%)";
-        }
         Label typeLabel = new Label(typeDesc);
         typeLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #475569;");
 
@@ -66,22 +62,10 @@ public class CycleCard extends VBox {
         Label locationLabel = new Label("📍 " + cycle.getLocation());
         locationLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #64748b;");
 
-        // Price display (showing effective rate with user discount if applicable)
-        double baseRate = cycle.getHourlyRate();
         double effectiveRate = cycle.calculateCost(1, currentUser.getPricingStrategy());
-        String priceText = String.format("$%.2f / hr", effectiveRate);
-        Label priceLabel = new Label(priceText);
+        Label priceLabel = new Label(String.format("৳%.2f / hr", effectiveRate));
         priceLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: 800; -fx-text-fill: #2563eb;");
-
-        if (effectiveRate < baseRate) {
-            Label discountNote = new Label(String.format("($%.2f base)", baseRate));
-            discountNote.setStyle("-fx-font-size: 11px; -fx-text-fill: #94a3b8; -fx-strikethrough: true;");
-            HBox priceBox = new HBox(6, priceLabel, discountNote);
-            priceBox.setAlignment(Pos.BASELINE_LEFT);
-            getChildren().addAll(header, typeLabel, locationLabel, priceBox);
-        } else {
-            getChildren().addAll(header, typeLabel, locationLabel, priceLabel);
-        }
+        getChildren().addAll(header, typeLabel, locationLabel, priceLabel);
 
         // Action Button
         Button rentBtn = new Button("Reserve & Rent");

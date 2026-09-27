@@ -7,10 +7,12 @@ import com.campuscycle.service.*;
 import com.campuscycle.ui.NavigationManager;
 import com.campuscycle.ui.view.components.StatCard;
 import com.campuscycle.ui.view.components.WeatherWidget;
+import com.campuscycle.ui.view.components.DashboardLayout;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Side;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
@@ -38,7 +40,6 @@ public class OwnerDashboardView {
     private StatCard availableCard;
     private StatCard activeRentalsCard;
     private StatCard earningsCard;
-    private StatCard ticketsCard;
 
     private final TableView<Cycle>  cycleTable  = new TableView<>();
     private final TableView<Rental> rentalTable = new TableView<>();
@@ -71,7 +72,7 @@ public class OwnerDashboardView {
         VBox brand = new VBox(2);
         Label title = new Label("🚲 CampusCycle · Owner Portal");
         title.getStyleClass().add("brand-title");
-        Label sub = new Label("Welcome, " + owner.getFullName() + " — manage your fleet");
+        Label sub = new Label("Welcome, " + owner.getFullName() + " — manage your cycle listings");
         sub.getStyleClass().add("brand-subtitle");
         brand.getChildren().addAll(title, sub);
 
@@ -91,28 +92,24 @@ public class OwnerDashboardView {
         myCyclesCard     = new StatCard("My Cycles",     "0",     "#2563eb");
         availableCard    = new StatCard("Available",     "0",     "#10b981");
         activeRentalsCard= new StatCard("Active Rentals","0",     "#f59e0b");
-        earningsCard     = new StatCard("My Earnings",   "$0.00", "#7c3aed");
-        ticketsCard      = new StatCard("Open Tickets",  "0",     "#ef4444");
+        earningsCard     = new StatCard("My Earnings",   "৳0.00", "#7c3aed");
 
         HBox statsBar = new HBox(14);
         statsBar.setAlignment(Pos.CENTER_LEFT);
-        for (StatCard sc : new StatCard[]{myCyclesCard, availableCard, activeRentalsCard, earningsCard, ticketsCard}) {
-            sc.prefWidthProperty().bind(mainLayout.widthProperty().divide(5).subtract(18));
+        for (StatCard sc : new StatCard[]{myCyclesCard, availableCard, activeRentalsCard, earningsCard}) {
+            sc.prefWidthProperty().bind(statsBar.widthProperty().subtract(42).divide(4));
             statsBar.getChildren().add(sc);
         }
 
-        // ── Tabs ─────────────────────────────────────────────────────
-        TabPane tabs = new TabPane();
-        tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        tabs.prefHeightProperty().bind(mainLayout.heightProperty().multiply(0.72));
-        tabs.getTabs().addAll(
-            new Tab("🚲 My Cycles",        buildMyCyclesTab()),
-            new Tab("📋 Rental Activity",   buildRentalsTab()),
-            new Tab("🛠️ Maintenance",      buildMaintenanceTab())
-        );
+        HBox dashboard = DashboardLayout.create(List.of(
+            new Tab("🚲 My Cycles",       buildMyCyclesTab()),
+            new Tab("📋 Rental Activity", buildRentalsTab()),
+            new Tab("🛠️ Maintenance",    buildMaintenanceTab())
+        ));
 
-        VBox center = new VBox(14, statsBar, tabs);
+        VBox center = new VBox(14, statsBar, dashboard);
         center.setPadding(new Insets(14, 20, 14, 20));
+        VBox.setVgrow(dashboard, Priority.ALWAYS);
         mainLayout.setCenter(center);
         rootStack.getChildren().add(mainLayout);
     }
@@ -126,15 +123,7 @@ public class OwnerDashboardView {
 
         Button addBtn = new Button("➕ Add Cycle");
         addBtn.getStyleClass().add("btn-primary");
-        addBtn.setOnAction(e -> openCycleModal(null, owner.getId()));
-
-        Button editBtn = new Button("✏️ Edit");
-        editBtn.getStyleClass().add("btn-secondary");
-        editBtn.setOnAction(e -> {
-            Cycle sel = cycleTable.getSelectionModel().getSelectedItem();
-            if (sel != null) openCycleModal(sel, owner.getId());
-            else warn("Select a cycle to edit.");
-        });
+        addBtn.setOnAction(e -> openCycleModal(owner.getId()));
 
         Button deleteBtn = new Button("🗑️ Remove Listing");
         deleteBtn.getStyleClass().add("btn-danger");
@@ -158,18 +147,14 @@ public class OwnerDashboardView {
             refreshAllData();
         });
 
-        HBox toolbar = new HBox(10, addBtn, editBtn, deleteBtn, maintBtn);
+        HBox toolbar = new HBox(10, addBtn, deleteBtn, maintBtn);
         toolbar.setAlignment(Pos.CENTER_LEFT);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         pane.setTop(toolbar);
 
         // Table columns
-        TableColumn<Cycle, Integer> cId = new TableColumn<>("ID");
-        cId.setCellValueFactory(new PropertyValueFactory<>("id"));
-        cId.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.06));
-
-        TableColumn<Cycle, String> cName = new TableColumn<>("Model & Brand");
-        cName.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getBrand() + " " + c.getValue().getModel()));
+        TableColumn<Cycle, String> cName = new TableColumn<>("Display Name");
+        cName.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getDisplayName()));
         cName.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.24));
 
         TableColumn<Cycle, String> cType = new TableColumn<>("Type");
@@ -177,7 +162,7 @@ public class OwnerDashboardView {
         cType.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.14));
 
         TableColumn<Cycle, String> cRate = new TableColumn<>("Rate/hr");
-        cRate.setCellValueFactory(c -> new SimpleStringProperty(String.format("$%.2f", c.getValue().getHourlyRate())));
+        cRate.setCellValueFactory(c -> new SimpleStringProperty(String.format("৳%.2f", c.getValue().getHourlyRate())));
         cRate.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.10));
 
         TableColumn<Cycle, String> cStatus = new TableColumn<>("Status");
@@ -192,38 +177,41 @@ public class OwnerDashboardView {
         cRides.setCellValueFactory(new PropertyValueFactory<>("totalRides"));
         cRides.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.08));
 
-        TableColumn<Cycle, Integer> cBat = new TableColumn<>("Bat%");
-        cBat.setCellValueFactory(new PropertyValueFactory<>("batteryPercentage"));
-        cBat.prefWidthProperty().bind(cycleTable.widthProperty().multiply(0.06));
-
-        cycleTable.getColumns().addAll(cId, cName, cType, cRate, cStatus, cLocation, cRides, cBat);
+        cycleTable.getColumns().addAll(cName, cType, cRate, cStatus, cLocation, cRides);
         cycleTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         pane.setCenter(cycleTable);
         return pane;
     }
 
-    private void openCycleModal(Cycle existing, int ownerId) {
+    private void openCycleModal(int ownerId) {
         GridPane grid = new GridPane();
         grid.setHgap(10); grid.setVgap(10);
 
-        TextField brandF = new TextField(existing != null ? existing.getBrand() : "");
-        TextField modelF = new TextField(existing != null ? existing.getModel() : "");
-        ComboBox<CycleType> typeC = new ComboBox<>(FXCollections.observableArrayList(CycleType.values()));
-        typeC.setValue(existing != null ? existing.getType() : CycleType.STANDARD);
-        TextField rateF = new TextField(existing != null ? String.valueOf(existing.getHourlyRate()) : "15.0");
-        TextField locF  = new TextField(existing != null ? existing.getLocation() : "Central Library");
-        locF.setPromptText("e.g. Central Library, Dormitories, Cafeteria");
-        TextField batF = new TextField(existing != null ? String.valueOf(existing.getBatteryPercentage()) : "-1");
-        batF.setPromptText("-1 manual, 0-100 e-bike");
+        ComboBox<CycleType> typeC = new ComboBox<>(FXCollections.observableArrayList(CycleType.STANDARD, CycleType.GEARED));
+        typeC.setValue(CycleType.STANDARD);
+        TextField displayNameF = new TextField();
+        displayNameF.setPromptText("Enter a unique cycle name");
+        TextField rateF = new TextField("15.0");
+        List<String> locations = cycleDao.findAll().stream()
+            .map(Cycle::getLocation)
+            .filter(location -> location != null && !location.isBlank())
+            .distinct()
+            .sorted(String.CASE_INSENSITIVE_ORDER)
+            .toList();
+        ComboBox<String> locC = new ComboBox<>(FXCollections.observableArrayList(locations));
+        locC.setEditable(true);
+        locC.setPromptText("Choose or enter a campus location");
+        if (!locC.getItems().stream().anyMatch(location -> location.equalsIgnoreCase("Central Library"))) {
+            locC.getItems().add("Central Library");
+        }
+        locC.setValue("Central Library");
 
-        grid.add(new Label("Brand:"),       0, 0); grid.add(brandF,   1, 0);
-        grid.add(new Label("Model:"),       0, 1); grid.add(modelF,   1, 1);
-        grid.add(new Label("Type:"),        0, 2); grid.add(typeC,    1, 2);
-        grid.add(new Label("Rate ($/hr):"), 0, 3); grid.add(rateF,    1, 3);
-        grid.add(new Label("Location:"),    0, 4); grid.add(locF,     1, 4);
-        grid.add(new Label("Battery %:"),   0, 5); grid.add(batF,     1, 5);
+        grid.add(new Label("Display Name:"), 0, 0); grid.add(displayNameF, 1, 0);
+        grid.add(new Label("Type:"),         0, 1); grid.add(typeC,        1, 1);
+        grid.add(new Label("Rate (৳/hr):"),  0, 2); grid.add(rateF,        1, 2);
+        grid.add(new Label("Location:"),     0, 3); grid.add(locC,         1, 3);
 
-        Label titleLbl = new Label(existing == null ? "List a New Cycle" : "Edit Cycle #" + existing.getId());
+        Label titleLbl = new Label("List a New Cycle");
         titleLbl.setStyle("-fx-font-size: 17px; -fx-font-weight: bold;");
 
         Button cancelBtn = new Button("Cancel"); cancelBtn.getStyleClass().add("btn-secondary");
@@ -240,26 +228,29 @@ public class OwnerDashboardView {
         cancelBtn.setOnAction(e -> rootStack.getChildren().remove(overlay));
         saveBtn.setOnAction(e -> {
             try {
-                String brand = brandF.getText().trim();
-                String model = modelF.getText().trim();
-                if (brand.isEmpty() || model.isEmpty()) { warn("Brand and Model are required."); return; }
+                String displayName = displayNameF.getText().trim();
+                if (displayName.isEmpty()) {
+                    warn("Enter a display name for the cycle.");
+                    return;
+                }
+                boolean duplicateName = cycleDao.findAll().stream()
+                    .anyMatch(cycle -> cycle.getDisplayName().equalsIgnoreCase(displayName));
+                if (duplicateName) {
+                    warn("That display name is already in use. Please change the name.");
+                    return;
+                }
                 double rate = Double.parseDouble(rateF.getText().trim());
-                int bat     = Integer.parseInt(batF.getText().trim());
-                String loc  = locF.getText().trim();
+                String loc  = locC.getEditor().getText().trim();
+                if (loc.isEmpty() && locC.getValue() != null) loc = locC.getValue().trim();
                 if (loc.isEmpty()) loc = "Campus Core";
 
-                if (existing == null) {
-                    Cycle c = new Cycle(0, model, brand, typeC.getValue(), rate, CycleStatus.AVAILABLE, loc, bat, ownerId);
-                    cycleDao.save(c);
-                } else {
-                    existing.setModel(model); existing.setBrand(brand); existing.setType(typeC.getValue());
-                    existing.setHourlyRate(rate); existing.setLocation(loc); existing.setBatteryPercentage(bat);
-                    cycleDao.update(existing);
-                }
+                Cycle cycle = new Cycle(0, displayName, "", typeC.getValue(), rate,
+                    CycleStatus.AVAILABLE, loc, -1, ownerId);
+                cycleDao.save(cycle);
                 rootStack.getChildren().remove(overlay);
                 refreshAllData();
             } catch (NumberFormatException ex) {
-                warn("Rate must be decimal; Battery must be integer.");
+                warn("Rate must be a valid number.");
             }
         });
         rootStack.getChildren().add(overlay);
@@ -272,10 +263,6 @@ public class OwnerDashboardView {
 
         Label notice = new Label("📊 Showing rentals of YOUR cycles only");
         notice.setStyle("-fx-font-size: 12px; -fx-text-fill: #64748b; -fx-padding: 0 0 8 0;");
-
-        TableColumn<Rental, Integer> rId = new TableColumn<>("ID");
-        rId.setCellValueFactory(new PropertyValueFactory<>("id"));
-        rId.prefWidthProperty().bind(rentalTable.widthProperty().multiply(0.06));
 
         TableColumn<Rental, String> rRider = new TableColumn<>("Rider");
         rRider.setCellValueFactory(new PropertyValueFactory<>("userName"));
@@ -295,15 +282,15 @@ public class OwnerDashboardView {
         ));
         rEnd.prefWidthProperty().bind(rentalTable.widthProperty().multiply(0.16));
 
-        TableColumn<Rental, String> rCost = new TableColumn<>("Earned ($)");
-        rCost.setCellValueFactory(r -> new SimpleStringProperty(String.format("$%.2f", r.getValue().getTotalCost())));
+        TableColumn<Rental, String> rCost = new TableColumn<>("Earned (৳)");
+        rCost.setCellValueFactory(r -> new SimpleStringProperty(String.format("৳%.2f", r.getValue().getTotalCost())));
         rCost.prefWidthProperty().bind(rentalTable.widthProperty().multiply(0.12));
 
         TableColumn<Rental, String> rStat = new TableColumn<>("Status");
         rStat.setCellValueFactory(r -> new SimpleStringProperty(r.getValue().getStatus().name()));
         rStat.prefWidthProperty().bind(rentalTable.widthProperty().multiply(0.10));
 
-        rentalTable.getColumns().addAll(rId, rRider, rCycle, rStart, rEnd, rCost, rStat);
+        rentalTable.getColumns().addAll(rRider, rCycle, rStart, rEnd, rCost, rStat);
         rentalTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         VBox content = new VBox(6, notice, rentalTable);
@@ -319,10 +306,6 @@ public class OwnerDashboardView {
 
         Label notice = new Label("🛠️ Maintenance tickets for YOUR cycles");
         notice.setStyle("-fx-font-size: 12px; -fx-text-fill: #64748b; -fx-padding: 0 0 8 0;");
-
-        TableColumn<MaintenanceTicket, Integer> tId = new TableColumn<>("ID");
-        tId.setCellValueFactory(new PropertyValueFactory<>("id"));
-        tId.prefWidthProperty().bind(ticketTable.widthProperty().multiply(0.06));
 
         TableColumn<MaintenanceTicket, String> tCycle = new TableColumn<>("Cycle");
         tCycle.setCellValueFactory(new PropertyValueFactory<>("cycleName"));
@@ -340,8 +323,8 @@ public class OwnerDashboardView {
         tDate.setCellValueFactory(new PropertyValueFactory<>("reportedAt"));
         tDate.prefWidthProperty().bind(ticketTable.widthProperty().multiply(0.16));
 
-        TableColumn<MaintenanceTicket, String> tCost = new TableColumn<>("Repair $");
-        tCost.setCellValueFactory(t -> new SimpleStringProperty(String.format("$%.2f", t.getValue().getRepairCost())));
+        TableColumn<MaintenanceTicket, String> tCost = new TableColumn<>("Repair (৳)");
+        tCost.setCellValueFactory(t -> new SimpleStringProperty(String.format("৳%.2f", t.getValue().getRepairCost())));
         tCost.prefWidthProperty().bind(ticketTable.widthProperty().multiply(0.10));
 
         TableColumn<MaintenanceTicket, String> tNotes = new TableColumn<>("Technician Notes");
@@ -350,7 +333,7 @@ public class OwnerDashboardView {
         ));
         tNotes.prefWidthProperty().bind(ticketTable.widthProperty().multiply(0.08));
 
-        ticketTable.getColumns().addAll(tId, tCycle, tCat, tStat, tDate, tCost, tNotes);
+        ticketTable.getColumns().addAll(tCycle, tCat, tStat, tDate, tCost, tNotes);
         ticketTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         VBox content = new VBox(6, notice, ticketTable);
@@ -375,16 +358,10 @@ public class OwnerDashboardView {
             .filter(r -> myIds.contains(r.getCycleId()) && r.getStatus() == RentalStatus.COMPLETED)
             .mapToDouble(Rental::getTotalCost).sum();
 
-        long openTickets = maintenanceService.getAllTickets().stream()
-            .filter(t -> myIds.contains(t.getCycleId()) && t.getStatus() == MaintenanceTicket.TicketStatus.OPEN)
-            .count();
-
         myCyclesCard.setValue(String.valueOf(myCycles.size()));
         availableCard.setValue(String.valueOf(available));
         activeRentalsCard.setValue(String.valueOf(activeRent));
-        earningsCard.setValue(String.format("$%.2f", earnings));
-        ticketsCard.setValue(String.valueOf(openTickets));
-
+        earningsCard.setValue(String.format("৳%.2f", earnings));
         cycleTable.setItems(FXCollections.observableArrayList(myCycles));
 
         // Rentals for my cycles only

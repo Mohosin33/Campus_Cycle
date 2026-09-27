@@ -10,7 +10,7 @@ public class MaintenanceTicket implements Identifiable {
         FLAT_TIRE("Flat Tire / Puncture"),
         BRAKE_ISSUE("Brakes Malfunction"),
         CHAIN_GEAR("Chain / Gear Derailleur"),
-        BATTERY_ELECTRICAL("E-Bike Battery / Display Fault"),
+        BATTERY_ELECTRICAL("Electrical / Display Fault"),
         STRUCTURAL("Handlebar / Seat / Frame"),
         ROUTINE_CHECKUP("Periodic Safety Inspection");
 

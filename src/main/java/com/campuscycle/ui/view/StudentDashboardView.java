@@ -7,6 +7,7 @@ import com.campuscycle.service.RentalService;
 import com.campuscycle.service.WalletService;
 import com.campuscycle.ui.NavigationManager;
 import com.campuscycle.ui.view.components.CycleCard;
+import com.campuscycle.ui.view.components.DashboardLayout;
 import com.campuscycle.ui.view.components.WeatherWidget;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -14,6 +15,7 @@ import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Side;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
@@ -119,7 +121,7 @@ public class StudentDashboardView {
         walletPill.setAlignment(Pos.CENTER);
         walletPill.setStyle("-fx-background-color: #f0fdf4; -fx-border-color: #86efac; -fx-border-radius: 20; -fx-background-radius: 20; -fx-padding: 4 12 4 12;");
 
-        walletBalanceLabel = new Label("💳 Campus Pay: $0.00");
+        walletBalanceLabel = new Label("💳 Campus Pay: ৳0.00");
         walletBalanceLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #166534; -fx-font-size: 13px;");
 
         Button topUpBtn = new Button("+ Top Up");
@@ -148,17 +150,14 @@ public class StudentDashboardView {
         header.setRight(rightHeaderBox);
         mainLayout.setTop(header);
 
-        // ================= CENTER CONTENT (TAB PANE) =================
-        TabPane tabPane = new TabPane();
-        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-
-        Tab cyclesTab = new Tab("🚴 Available Cycles", buildCyclesTabContent());
-        Tab activeTab = new Tab("⚡ My Active Ride", buildActiveRentalTabContent());
-        Tab historyTab = new Tab("📜 Ride History & Receipts", buildHistoryTabContent());
-        Tab walletTab = new Tab("💳 Campus Pay Ledger", buildWalletTabContent());
-
-        tabPane.getTabs().addAll(cyclesTab, activeTab, historyTab, walletTab);
-        mainLayout.setCenter(tabPane);
+        // ================= CENTER CONTENT =================
+        HBox dashboard = DashboardLayout.create(List.of(
+            new Tab("🚴 Cycles", buildCyclesTabContent()),
+            new Tab("⚡ Active Ride", buildActiveRentalTabContent()),
+            new Tab("📜 Ride History", buildHistoryTabContent()),
+            new Tab("💳 Wallet", buildWalletTabContent())
+        ));
+        mainLayout.setCenter(dashboard);
 
         rootStack.getChildren().add(mainLayout);
     }
@@ -175,7 +174,7 @@ public class StudentDashboardView {
         Label typeLbl = new Label("Type:");
         typeLbl.setStyle("-fx-font-weight: 600; -fx-text-fill: #475569;");
         typeFilterCombo = new ComboBox<>();
-        typeFilterCombo.getItems().addAll("All Types", "Standard City", "Multi-Speed Geared", "E-Bike (Electric)", "All-Terrain Mountain");
+        typeFilterCombo.getItems().addAll("All Types", "Non-Geared", "Geared");
         typeFilterCombo.setValue("All Types");
         typeFilterCombo.setOnAction(e -> applyCycleFilter());
 
@@ -187,7 +186,7 @@ public class StudentDashboardView {
         locationFilterCombo.setOnAction(e -> applyCycleFilter());
 
         searchField = new TextField();
-        searchField.setPromptText("Search model or brand...");
+        searchField.setPromptText("Search cycle name or location...");
         searchField.prefWidthProperty().bind(mainLayout.widthProperty().multiply(0.20));
         searchField.textProperty().addListener((obs, oldV, newV) -> applyCycleFilter());
 
@@ -317,10 +316,10 @@ public class StudentDashboardView {
             );
 
             if (receipt != null) {
-                String msg = String.format("Ride Duration: %d min\nTotal Charged: $%.2f",
+                String msg = String.format("Ride Duration: %d min\nTotal Charged: ৳%.2f",
                     receipt.actualMinutes(), receipt.totalCharged());
                 if (receipt.overdueFine() > 0) {
-                    msg += String.format("\n⚠️ Overdue Fine Applied: $%.2f", receipt.overdueFine());
+                    msg += String.format("\n⚠️ Overdue Fine Applied: ৳%.2f", receipt.overdueFine());
                 }
                 msg += "\n⭐ Campus Loyalty Earned: +" + receipt.loyaltyPointsEarned() + " Points";
                 if (reportDamage) {
@@ -354,10 +353,6 @@ public class StudentDashboardView {
         Label title = new Label("Your Campus Mobility Journey & Receipts");
         title.getStyleClass().add("card-title");
 
-        TableColumn<Rental, Integer> colId = new TableColumn<>("Rental #");
-        colId.setCellValueFactory(new PropertyValueFactory<>("id"));
-        colId.prefWidthProperty().bind(historyTable.widthProperty().multiply(0.08));
-
         TableColumn<Rental, String> colCycle = new TableColumn<>("Cycle Details");
         colCycle.setCellValueFactory(new PropertyValueFactory<>("cycleName"));
         colCycle.prefWidthProperty().bind(historyTable.widthProperty().multiply(0.26));
@@ -375,14 +370,14 @@ public class StudentDashboardView {
         colHours.prefWidthProperty().bind(historyTable.widthProperty().multiply(0.10));
 
         TableColumn<Rental, String> colCost = new TableColumn<>("Total Paid");
-        colCost.setCellValueFactory(r -> new SimpleStringProperty(String.format("$%.2f", r.getValue().getTotalCost())));
+        colCost.setCellValueFactory(r -> new SimpleStringProperty(String.format("৳%.2f", r.getValue().getTotalCost())));
         colCost.prefWidthProperty().bind(historyTable.widthProperty().multiply(0.10));
 
         TableColumn<Rental, String> colStatus = new TableColumn<>("Status");
         colStatus.setCellValueFactory(r -> new SimpleStringProperty(r.getValue().getStatus().name()));
         colStatus.prefWidthProperty().bind(historyTable.widthProperty().multiply(0.10));
 
-        historyTable.getColumns().addAll(colId, colCycle, colStart, colEnd, colHours, colCost, colStatus);
+        historyTable.getColumns().addAll(colCycle, colStart, colEnd, colHours, colCost, colStatus);
         historyTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         historyTable.prefHeightProperty().bind(mainLayout.heightProperty().multiply(0.70));
 
@@ -405,22 +400,18 @@ public class StudentDashboardView {
         top.setLeft(title);
         top.setRight(topUpBtn);
 
-        TableColumn<WalletTransaction, Integer> colId = new TableColumn<>("Txn #");
-        colId.setCellValueFactory(new PropertyValueFactory<>("id"));
-        colId.prefWidthProperty().bind(walletTable.widthProperty().multiply(0.08));
-
         TableColumn<WalletTransaction, String> colType = new TableColumn<>("Type");
         colType.setCellValueFactory(t -> new SimpleStringProperty(t.getValue().getType().getLabel()));
         colType.prefWidthProperty().bind(walletTable.widthProperty().multiply(0.20));
 
-        TableColumn<WalletTransaction, String> colAmt = new TableColumn<>("Amount ($)");
+        TableColumn<WalletTransaction, String> colAmt = new TableColumn<>("Amount (৳)");
         colAmt.setCellValueFactory(t -> new SimpleStringProperty(
-            (t.getValue().getAmount() >= 0 ? "+$" : "-$") + String.format("%.2f", Math.abs(t.getValue().getAmount()))
+            (t.getValue().getAmount() >= 0 ? "+৳" : "-৳") + String.format("%.2f", Math.abs(t.getValue().getAmount()))
         ));
         colAmt.prefWidthProperty().bind(walletTable.widthProperty().multiply(0.12));
 
         TableColumn<WalletTransaction, String> colBal = new TableColumn<>("Balance After");
-        colBal.setCellValueFactory(t -> new SimpleStringProperty(String.format("$%.2f", t.getValue().getBalanceAfter())));
+        colBal.setCellValueFactory(t -> new SimpleStringProperty(String.format("৳%.2f", t.getValue().getBalanceAfter())));
         colBal.prefWidthProperty().bind(walletTable.widthProperty().multiply(0.14));
 
         TableColumn<WalletTransaction, String> colTime = new TableColumn<>("Timestamp");
@@ -431,7 +422,7 @@ public class StudentDashboardView {
         colDesc.setCellValueFactory(new PropertyValueFactory<>("description"));
         colDesc.prefWidthProperty().bind(walletTable.widthProperty().multiply(0.28));
 
-        walletTable.getColumns().addAll(colId, colType, colAmt, colBal, colTime, colDesc);
+        walletTable.getColumns().addAll(colType, colAmt, colBal, colTime, colDesc);
         walletTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         walletTable.prefHeightProperty().bind(mainLayout.heightProperty().multiply(0.70));
 
@@ -471,7 +462,7 @@ public class StudentDashboardView {
 
         // Wallet and points
         double balance = walletService.getBalance(user.getId());
-        walletBalanceLabel.setText(String.format("💳 Campus Pay: $%.2f", balance));
+        walletBalanceLabel.setText(String.format("💳 Campus Pay: ৳%.2f", balance));
 
         if (user instanceof Rider rider) {
             loyaltyPointsLabel.setText("⭐ " + rider.getLoyaltyPoints() + " Pts");
@@ -499,7 +490,7 @@ public class StudentDashboardView {
             activeBikeNameLabel.setText(active.getCycleName());
             activeStatusLabel.setText("Currently Rented • Live Ride Active");
             activeTimeLabel.setText("Started: " + active.getStartTime() + " (" + active.getDurationHours() + " hr booking)");
-            activeCostLabel.setText(String.format("Fare Paid: $%.2f", active.getTotalCost()));
+            activeCostLabel.setText(String.format("Fare Paid: ৳%.2f", active.getTotalCost()));
             returnBtn.setDisable(false);
             returnLocationField.setDisable(false);
             reportDamageCheck.setDisable(false);
@@ -532,8 +523,7 @@ public class StudentDashboardView {
             boolean matchesType = selectedType.equals("All Types") || c.getType().getLabel().equals(selectedType);
             boolean matchesLoc = selectedLoc.equals("All Locations") || c.getLocation().equalsIgnoreCase(selectedLoc);
             boolean matchesSearch = search.isEmpty() ||
-                c.getModel().toLowerCase().contains(search) ||
-                c.getBrand().toLowerCase().contains(search) ||
+                c.getDisplayName().toLowerCase().contains(search) ||
                 c.getLocation().toLowerCase().contains(search);
 
             if (matchesType && matchesLoc && matchesSearch) {
@@ -561,7 +551,7 @@ public class StudentDashboardView {
         modal.setMaxWidth(440);
         modal.setStyle("-fx-background-color: white; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 16, 0, 0, 4);");
 
-        Label modalTitle = new Label("Reserve " + cycle.getBrand() + " " + cycle.getModel());
+        Label modalTitle = new Label("Reserve " + cycle.getDisplayName());
         modalTitle.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #0f172a;");
 
         GridPane grid = new GridPane();
@@ -576,16 +566,13 @@ public class StudentDashboardView {
         payCombo.getItems().addAll(PaymentMethod.CAMPUS_CARD, PaymentMethod.BKASH, PaymentMethod.CREDIT_CARD, PaymentMethod.CASH);
         payCombo.setValue(PaymentMethod.CAMPUS_CARD);
 
-        Label discountLabel = new Label(user.getPricingStrategy().getStrategyName());
-        discountLabel.setStyle("-fx-text-fill: #16a34a; -fx-font-weight: bold;");
-
         Label finalPriceLabel = new Label();
         finalPriceLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: 800; -fx-text-fill: #2563eb;");
 
         Runnable updateCost = () -> {
             int hrs = hoursSpinner.getValue();
             double cost = cycle.calculateCost(hrs, user.getPricingStrategy());
-            finalPriceLabel.setText(String.format("$%.2f", cost));
+            finalPriceLabel.setText(String.format("৳%.2f", cost));
         };
         hoursSpinner.valueProperty().addListener((obs, oldV, newV) -> updateCost.run());
         updateCost.run();
@@ -600,17 +587,14 @@ public class StudentDashboardView {
         grid.add(new Label("Duration (Hours):"), 0, 1);
         grid.add(hoursSpinner, 1, 1);
 
-        grid.add(new Label("Discount Tier:"), 0, 2);
-        grid.add(discountLabel, 1, 2);
+        grid.add(new Label("Payment Method:"), 0, 2);
+        grid.add(payCombo, 1, 2);
 
-        grid.add(new Label("Payment Method:"), 0, 3);
-        grid.add(payCombo, 1, 3);
+        grid.add(new Label("Total Estimated Cost:"), 0, 3);
+        grid.add(finalPriceLabel, 1, 3);
 
-        grid.add(new Label("Total Estimated Cost:"), 0, 4);
-        grid.add(finalPriceLabel, 1, 4);
-
-        grid.add(new Label("Trip Note:"), 0, 5);
-        grid.add(notesArea, 1, 5);
+        grid.add(new Label("Trip Note:"), 0, 4);
+        grid.add(notesArea, 1, 4);
 
         HBox btnBar = new HBox(12);
         btnBar.setAlignment(Pos.CENTER_RIGHT);
@@ -666,15 +650,15 @@ public class StudentDashboardView {
 
         HBox presetBox = new HBox(8);
         presetBox.setAlignment(Pos.CENTER);
-        Button b10 = new Button("+$10");
-        Button b25 = new Button("+$25");
-        Button b50 = new Button("+$50");
+        Button b10 = new Button("+৳10");
+        Button b25 = new Button("+৳25");
+        Button b50 = new Button("+৳50");
         b10.getStyleClass().add("btn-secondary");
         b25.getStyleClass().add("btn-secondary");
         b50.getStyleClass().add("btn-secondary");
 
         TextField amountField = new TextField("25.00");
-        amountField.setPromptText("Enter amount ($)");
+        amountField.setPromptText("Enter amount (৳)");
         amountField.setMaxWidth(200);
 
         b10.setOnAction(e -> amountField.setText("10.00"));
@@ -712,7 +696,7 @@ public class StudentDashboardView {
                 if (ok) {
                     rootStack.getChildren().remove(overlay);
                     showAlert(Alert.AlertType.INFORMATION, "Deposit Successful",
-                        String.format("Successfully added $%.2f to your Campus Pay wallet.", amt));
+                        String.format("Successfully added ৳%.2f to your Campus Pay wallet.", amt));
                     refreshAllData();
                 } else {
                     showAlert(Alert.AlertType.ERROR, "Deposit Failed", "Could not process wallet top-up.");
@@ -723,7 +707,7 @@ public class StudentDashboardView {
         });
 
         btnBar.getChildren().addAll(cancel, submit);
-        modal.getChildren().addAll(title, desc, presetBox, new Label("Deposit Amount ($):"), amountField, new Label("Payment Method:"), methodCombo, btnBar);
+        modal.getChildren().addAll(title, desc, presetBox, new Label("Deposit Amount (৳):"), amountField, new Label("Payment Method:"), methodCombo, btnBar);
         rootStack.getChildren().add(overlay);
     }
 

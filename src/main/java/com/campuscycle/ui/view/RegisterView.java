@@ -57,9 +57,6 @@ public class RegisterView {
         Label title = new Label("Create Your Campus Mobility Account");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #0f172a;");
 
-        Label perkLabel = new Label("✨ Riders receive $20.00 Welcome Campus Pay Credit on sign-up");
-        perkLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #16a34a; -fx-font-weight: 600;");
-
         GridPane grid = new GridPane();
         grid.setHgap(12);
         grid.setVgap(12);
@@ -83,38 +80,12 @@ public class RegisterView {
         roleCombo.getItems().addAll(UserRole.RIDER, UserRole.OWNER);
         roleCombo.setValue(UserRole.RIDER);
 
-        TextField idField = new TextField();
-        idField.setPromptText("Rider ID (e.g. RDR-101)");
-
-        TextField deptField = new TextField();
-        deptField.setPromptText("Department / Area of Operations");
-
         grid.add(new Label("Full Name:"),    0, 0); grid.add(nameField,  1, 0);
         grid.add(new Label("Username:"),     0, 1); grid.add(userField,  1, 1);
         grid.add(new Label("Password:"),     0, 2); grid.add(passField,  1, 2);
         grid.add(new Label("Campus Email:"), 0, 3); grid.add(emailField, 1, 3);
         grid.add(new Label("Phone:"),        0, 4); grid.add(phoneField, 1, 4);
         grid.add(new Label("Role:"),         0, 5); grid.add(roleCombo,  1, 5);
-
-        Label specificLabel = new Label("Rider ID:");
-        grid.add(specificLabel, 0, 6);
-        grid.add(idField, 1, 6);
-
-        grid.add(new Label("Department:"), 0, 7); grid.add(deptField, 1, 7);
-
-        roleCombo.setOnAction(e -> {
-            if (roleCombo.getValue() == UserRole.OWNER) {
-                specificLabel.setText("Owner ID:");
-                idField.setPromptText("e.g. OWN-201 or NID");
-                perkLabel.setText("🏪 As an Owner you can list your cycles and earn rental income");
-                perkLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #7c3aed; -fx-font-weight: 600;");
-            } else {
-                specificLabel.setText("Rider ID:");
-                idField.setPromptText("Rider ID (e.g. RDR-101)");
-                perkLabel.setText("✨ Riders receive $20.00 Welcome Campus Pay Credit on sign-up");
-                perkLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #16a34a; -fx-font-weight: 600;");
-            }
-        });
 
         Label statusLabel = new Label();
         statusLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
@@ -127,17 +98,30 @@ public class RegisterView {
         submitBtn.setMaxWidth(Double.MAX_VALUE);
 
         submitBtn.setOnAction(e -> {
-            String name   = nameField.getText().trim();
-            String user   = userField.getText().trim();
-            String pass   = passField.getText().trim();
-            String email  = emailField.getText().trim();
-            String phone  = phoneField.getText().trim();
-            String specId = idField.getText().trim();
-            String dept   = deptField.getText().trim();
+            String name = nameField.getText().trim();
+            String user = userField.getText().trim();
+            String pass = passField.getText().trim();
+            String email = emailField.getText().trim();
+            String phone = phoneField.getText().trim();
+            String dept = "";
 
-            if (name.isEmpty() || user.isEmpty() || pass.isEmpty()) {
-                statusLabel.setText("Name, username, and password are required.");
-                statusLabel.setStyle("-fx-text-fill: #ef4444;");
+            TextField[] requiredFields = {nameField, userField, passField, emailField, phoneField};
+            String defaultStyle = "-fx-background-color: #ffffff; -fx-border-color: #cbd5e1; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 8 10 8 10;";
+            String errorStyle = "-fx-background-color: #fff1f2; -fx-border-color: #ef4444; -fx-border-width: 1.5; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 8 10 8 10;";
+
+            boolean hasError = false;
+            for (TextField field : requiredFields) {
+                if (field.getText() == null || field.getText().trim().isEmpty()) {
+                    field.setStyle(errorStyle);
+                    hasError = true;
+                } else {
+                    field.setStyle(defaultStyle);
+                }
+            }
+
+            if (hasError) {
+                statusLabel.setText("Please fill in all required fields before creating your account.");
+                statusLabel.setStyle("-fx-text-fill: #ef4444; -fx-font-weight: bold;");
                 statusLabel.setVisible(true);
                 return;
             }
@@ -146,6 +130,7 @@ public class RegisterView {
                 statusLabel.setText("Username must be 3-24 characters (letters, numbers, underscore only).");
                 statusLabel.setStyle("-fx-text-fill: #ef4444;");
                 statusLabel.setVisible(true);
+                userField.setStyle(errorStyle);
                 return;
             }
 
@@ -153,13 +138,23 @@ public class RegisterView {
                 statusLabel.setText("Password must be at least 6 characters long.");
                 statusLabel.setStyle("-fx-text-fill: #ef4444;");
                 statusLabel.setVisible(true);
+                passField.setStyle(errorStyle);
                 return;
             }
 
-            if (!email.isEmpty() && !InputValidator.isValidEmail(email)) {
+            if (!InputValidator.isValidEmail(email)) {
                 statusLabel.setText("Please enter a valid email address.");
                 statusLabel.setStyle("-fx-text-fill: #ef4444;");
                 statusLabel.setVisible(true);
+                emailField.setStyle(errorStyle);
+                return;
+            }
+
+            if (!InputValidator.isValidPhone(phone)) {
+                statusLabel.setText("Please enter a valid phone number.");
+                statusLabel.setStyle("-fx-text-fill: #ef4444;");
+                statusLabel.setVisible(true);
+                phoneField.setStyle(errorStyle);
                 return;
             }
 
@@ -168,9 +163,9 @@ public class RegisterView {
 
             User newUser;
             if (roleCombo.getValue() == UserRole.OWNER) {
-                newUser = new Owner(0, user, "", "", name, email, phone, specId, dept, welcomeCredit, true, now);
+                newUser = new Owner(0, user, "", "", name, email, phone, "", dept, welcomeCredit, true, now);
             } else {
-                newUser = new Rider(0, user, "", "", name, email, phone, specId, dept, 0, welcomeCredit, true, now);
+                newUser = new Rider(0, user, "", "", name, email, phone, "", dept, 0, welcomeCredit, true, now);
             }
 
             if (authService.register(newUser, pass)) {
@@ -191,7 +186,7 @@ public class RegisterView {
         backBtn.setMaxWidth(Double.MAX_VALUE);
         backBtn.setOnAction(e -> NavigationManager.getInstance().showLoginView());
 
-        card.getChildren().addAll(title, perkLabel, grid, statusLabel, submitBtn, backBtn);
+        card.getChildren().addAll(title, grid, statusLabel, submitBtn, backBtn);
 
         StackPane centerContainer = new StackPane(card);
         centerContainer.setPadding(new Insets(24));

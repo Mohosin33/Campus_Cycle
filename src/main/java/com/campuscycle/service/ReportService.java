@@ -63,12 +63,12 @@ public class ReportService {
                     writer.println("# Generated on: " + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                     writer.println();
                     writer.println("--- CYCLES INVENTORY ---");
-                    writer.println("ID,Model,Brand,Type,HourlyRate,Status,Station,BatteryPercent,TotalRides");
+                    writer.println("ID,Model,Brand,Type,HourlyRate,Status,Station,TotalRides");
                     for (Cycle c : cycles) {
-                        writer.printf("%d,%s,%s,%s,%.2f,%s,%s,%d,%d%n",
+                        writer.printf("%d,%s,%s,%s,%.2f,%s,%s,%d%n",
                             c.getId(), c.getModel(), c.getBrand(), c.getType().name(),
                             c.getHourlyRate(), c.getStatus().name(), c.getStationName(),
-                            c.getBatteryPercentage(), c.getTotalRides());
+                            c.getTotalRides());
                     }
 
                     writer.println();
